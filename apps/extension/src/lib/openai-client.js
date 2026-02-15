@@ -10,6 +10,40 @@ function buildTabsPayload(tabs, includeFullUrl) {
     .join("\n");
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function requestOpenAI(payload, openaiApiKey, timeoutMs) {
+  const controller = new AbortController();
+  const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${openaiApiKey}`
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      throw new Error(`AI_HTTP_${response.status}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error("AI_TIMEOUT");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutHandle);
+  }
+}
+
 function normalizeGroupName(name, fallback) {
   if (typeof name !== "string") {
     return fallback;
@@ -71,6 +105,9 @@ function parseResponsePayload(data, tabCount) {
  * @returns {Promise<import("./models").GroupSuggestion[]>}
  */
 export async function groupTabsWithAI(tabs, settings) {
+  const timeoutMs = 20_000;
+  const maxRetries = 1;
+
   const payload = {
     model: settings.model,
     temperature: 0.2,
@@ -91,19 +128,25 @@ export async function groupTabsWithAI(tabs, settings) {
     ]
   };
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${settings.openaiApiKey}`
-    },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    throw new Error(`AI_HTTP_${response.status}`);
+  let attempt = 0;
+  let lastError = null;
+  while (attempt <= maxRetries) {
+    try {
+      const data = await requestOpenAI(
+        payload,
+        settings.openaiApiKey,
+        timeoutMs
+      );
+      return parseResponsePayload(data, tabs.length);
+    } catch (error) {
+      lastError = error;
+      if (attempt >= maxRetries) {
+        break;
+      }
+      await sleep((attempt + 1) * 500);
+      attempt += 1;
+    }
   }
 
-  const data = await response.json();
-  return parseResponsePayload(data, tabs.length);
+  throw lastError ?? new Error("AI_REQUEST_FAILED");
 }
