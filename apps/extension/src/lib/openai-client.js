@@ -1,9 +1,27 @@
 function buildTabsPayload(tabs, includeFullUrl) {
   return tabs
     .map((tab, index) => {
-      const pieces = [`${index}`, tab.title, tab.domain];
+      const pieces = [
+        `id:${index}`,
+        `window:${tab.windowId}`,
+        `position:${tab.tabIndex}`,
+        `title:${tab.title}`,
+        `domain:${tab.domain}`
+      ];
       if (includeFullUrl && tab.url) {
-        pieces.push(tab.url);
+        pieces.push(`url:${tab.url}`);
+      }
+      if (tab.pageContext?.description) {
+        pieces.push(`description:${tab.pageContext.description}`);
+      }
+      if (tab.pageContext?.snippet) {
+        pieces.push(`snippet:${tab.pageContext.snippet}`);
+      }
+      if (Array.isArray(tab.pageContext?.headings) && tab.pageContext.headings.length > 0) {
+        pieces.push(`headings:${tab.pageContext.headings.join(" || ")}`);
+      }
+      if (Array.isArray(tab.pageContext?.siteHints) && tab.pageContext.siteHints.length > 0) {
+        pieces.push(`hints:${tab.pageContext.siteHints.join(", ")}`);
       }
       return pieces.join(" | ");
     })
@@ -72,7 +90,11 @@ function validateGroups(rawGroups, tabCount) {
         name: normalizeGroupName(group?.name, `Group ${idx + 1}`),
         tabIndices: indices,
         confidence:
-          typeof group?.confidence === "number" ? group.confidence : undefined
+          typeof group?.confidence === "number" ? group.confidence : undefined,
+        rationale:
+          typeof group?.rationale === "string"
+            ? group.rationale.trim().slice(0, 160)
+            : undefined
       };
     })
     .filter(Boolean);
@@ -140,11 +162,11 @@ export async function groupTabsWithAI(tabs, settings) {
       {
         role: "system",
         content:
-          "You are a browser tab organizer. Return JSON only with the shape {\"groups\":[{\"name\":\"...\",\"tabIndices\":[0,1],\"confidence\":0.0}]}. Group tabs by topic and keep names concise."
+          "You are a browser tab organizer. Return JSON only with shape {\"groups\":[{\"name\":\"...\",\"tabIndices\":[0,1],\"confidence\":0.0,\"rationale\":\"...\"}]}. Group by user intent/topic. Do not group primarily by domain. Same-domain tabs can belong to different topics. Use tab adjacency as a weak signal only."
       },
       {
         role: "user",
-        content: `Group these tabs by topic.\nTabs:\n${buildTabsPayload(
+        content: `Group these tabs by topic and intent.\nRules:\n- Avoid giant single-domain buckets.\n- Keep unrelated tasks separate.\n- Keep group names specific and short.\nTabs:\n${buildTabsPayload(
           tabs,
           settings.includeFullUrl
         )}`

@@ -39,9 +39,11 @@ function toOrganizeTab(tab, includeFullUrl) {
   const normalized = {
     chromeTabId: tab.id,
     windowId: tab.windowId,
+    tabIndex: Number.isInteger(tab.index) ? tab.index : 0,
     title: normalizeTitle(tab.title),
     domain: domainFromUrl(tab.url),
-    pinned: Boolean(tab.pinned)
+    pinned: Boolean(tab.pinned),
+    groupId: Number.isInteger(tab.groupId) && tab.groupId >= 0 ? tab.groupId : null
   };
 
   if (includeFullUrl) {
