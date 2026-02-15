@@ -1,4 +1,5 @@
 import { applyTabGroups } from "../lib/group-applier.js";
+import { groupTabsHeuristic } from "../lib/grouping-heuristic.js";
 import { MESSAGE_TYPES } from "../lib/messages.js";
 import { groupTabsWithAI } from "../lib/openai-client.js";
 import { getSettings, getLastRunSummary, setLastRunSummary } from "../lib/storage.js";
@@ -23,11 +24,19 @@ async function handleOrganizeNow() {
     return { ok: true, summary: emptySummary };
   }
 
-  const groups = await groupTabsWithAI(tabs, settings);
+  let groups;
+  let usedFallback = false;
+  try {
+    groups = await groupTabsWithAI(tabs, settings);
+  } catch {
+    groups = groupTabsHeuristic(tabs);
+    usedFallback = true;
+  }
+
   const applySummary = await applyTabGroups(tabs, groups);
   const summary = {
     ...applySummary,
-    usedFallback: false,
+    usedFallback,
     ranAt: Date.now()
   };
   await setLastRunSummary(summary);
