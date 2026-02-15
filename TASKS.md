@@ -8,15 +8,15 @@
 - [ ] Refactor after bug fixes (no stacked hacks)
 
 ## Stage 0 - Bootstrap
-- [ ] Create `apps/extension` folder structure
-- [ ] Add Vite config and package scripts
-- [ ] Add MV3 `manifest.json`
-- [ ] Add popup shell (`html/js/css`)
-- [ ] Add options shell (`html/js/css`)
-- [ ] Verify extension loads unpacked
-- [ ] Commit: `chore(repo): scaffold apps/extension with vite`
-- [ ] Commit: `chore(extension): add mv3 manifest and base pages`
-- [ ] Tag: `v0.1-stage-0`
+- [x] Create `apps/extension` folder structure
+- [x] Add Vite config and package scripts
+- [x] Add MV3 `manifest.json`
+- [x] Add popup shell (`html/js/css`)
+- [x] Add options shell (`html/js/css`)
+- [x] Verify extension loads unpacked
+- [x] Commit: `chore(repo): scaffold apps/extension with vite`
+- [x] Commit: `chore(extension): add mv3 manifest and base pages`
+- [x] Tag: `v0.1-stage-0`
 
 ## Stage 1 - Core Organize
 - [ ] Implement all-window tab collection + normalization
