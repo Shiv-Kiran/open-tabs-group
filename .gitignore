@@ -5,5 +5,5 @@ release/
 npm-debug.log*
 
 # Keep planning artifacts explicitly tracked.
-!IMPLEMENTATION_PLAN.md
-!TASKS.md
+IMPLEMENTATION_PLAN.md
+TASKS.md
