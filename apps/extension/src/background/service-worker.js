@@ -137,8 +137,12 @@ async function handleApplyPreview() {
   }
 
   const snapshot = await captureSnapshot(draft.tabs);
-  await appendRevertSnapshot(snapshot);
   const applySummary = await applyTabGroups(draft.tabs, draft.groups);
+  snapshot.summary = {
+    groupedTabs: applySummary.groupedTabs,
+    groupsCreated: applySummary.groupsCreated
+  };
+  await appendRevertSnapshot(snapshot);
 
   const summary = {
     ...applySummary,
@@ -165,6 +169,11 @@ async function handleRevertRun(snapshotId) {
   }
 
   const currentTabs = await chrome.tabs.query({});
+  const currentTabMap = new Map(
+    currentTabs
+      .filter((tab) => Number.isInteger(tab.id))
+      .map((tab) => [tab.id, tab])
+  );
   const openTabIds = new Set(
     currentTabs.filter((tab) => Number.isInteger(tab.id)).map((tab) => tab.id)
   );
@@ -177,7 +186,16 @@ async function handleRevertRun(snapshotId) {
     return { ok: false, error: "NO_OPEN_TABS_FROM_SNAPSHOT" };
   }
 
-  await chrome.tabs.ungroup(restoreTabIds);
+  const groupedRestoreIds = snapshot.tabs
+    .map((tab) => tab.chromeTabId)
+    .filter((tabId) => {
+      const currentTab = currentTabMap.get(tabId);
+      return Number.isInteger(currentTab?.groupId) && currentTab.groupId >= 0;
+    });
+
+  if (groupedRestoreIds.length > 0) {
+    await chrome.tabs.ungroup(groupedRestoreIds);
+  }
 
   let restoredGroups = 0;
   for (const priorGroup of snapshot.priorGroups) {
@@ -202,6 +220,7 @@ async function handleRevertRun(snapshotId) {
     ranAt: Date.now()
   };
   await setLastRunSummary(result);
+  await clearPreviewDraft();
 
   return { ok: true, summary: result };
 }
