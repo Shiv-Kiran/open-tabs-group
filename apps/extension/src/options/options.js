@@ -3,6 +3,9 @@ import { DEFAULT_SETTINGS, getSettings, saveSettings } from "../lib/storage.js";
 const apiKeyInput = document.getElementById("apiKey");
 const modelInput = document.getElementById("model");
 const includeFullUrlInput = document.getElementById("includeFullUrl");
+const includeScrapedContextInput = document.getElementById(
+  "includeScrapedContext"
+);
 const saveBtn = document.getElementById("saveBtn");
 const statusText = document.getElementById("statusText");
 
@@ -15,6 +18,7 @@ async function loadSettings() {
   apiKeyInput.value = settings.openaiApiKey;
   modelInput.value = settings.model || DEFAULT_SETTINGS.model;
   includeFullUrlInput.checked = settings.includeFullUrl;
+  includeScrapedContextInput.checked = settings.includeScrapedContext;
 }
 
 async function handleSave() {
@@ -24,11 +28,13 @@ async function handleSave() {
   const openaiApiKey = apiKeyInput.value.trim();
   const model = modelInput.value.trim() || DEFAULT_SETTINGS.model;
   const includeFullUrl = includeFullUrlInput.checked;
+  const includeScrapedContext = includeScrapedContextInput.checked;
 
   await saveSettings({
     openaiApiKey,
     model,
-    includeFullUrl
+    includeFullUrl,
+    includeScrapedContext
   });
 
   setStatus("Saved.");

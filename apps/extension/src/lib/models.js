@@ -3,16 +3,28 @@
  * @property {string} name
  * @property {number[]} tabIndices
  * @property {number=} confidence
+ * @property {string=} rationale
+ */
+
+/**
+ * @typedef {Object} PageContext
+ * @property {string=} description
+ * @property {string[]=} headings
+ * @property {string=} snippet
+ * @property {string[]=} siteHints
  */
 
 /**
  * @typedef {Object} OrganizeRequestTab
  * @property {number} chromeTabId
- * @property {number} windowId
- * @property {string} title
- * @property {string} domain
- * @property {string=} url
- * @property {boolean} pinned
+  * @property {number} windowId
+ * @property {number} tabIndex
+  * @property {string} title
+  * @property {string} domain
+  * @property {string=} url
+  * @property {boolean} pinned
+ * @property {number|null=} groupId
+ * @property {PageContext=} pageContext
  */
 
 /**
@@ -20,6 +32,58 @@
  * @property {number} groupedTabs
  * @property {number} groupsCreated
  * @property {number} skippedTabs
+ */
+
+/**
+ * @typedef {Object} PreviewGroup
+ * @property {string} id
+ * @property {string} name
+ * @property {number[]} tabIndices
+ * @property {number=} confidence
+ * @property {string[]=} sampleTitles
+ * @property {string=} rationale
+ */
+
+/**
+ * @typedef {Object} PreviewDraft
+ * @property {string} draftId
+ * @property {number} createdAt
+ * @property {OrganizeRequestTab[]} tabs
+ * @property {PreviewGroup[]} groups
+ * @property {boolean} usedFallback
+ * @property {boolean} enrichedContextUsed
+ * @property {string=} hint
+ */
+
+/**
+ * @typedef {Object} RunSnapshotTab
+ * @property {number} chromeTabId
+ * @property {number|null} priorGroupId
+ */
+
+/**
+ * @typedef {Object} RunSnapshotGroup
+ * @property {number|null} oldGroupId
+ * @property {string} title
+ * @property {"grey"|"blue"|"red"|"yellow"|"green"|"pink"|"purple"|"cyan"|"orange"} color
+ * @property {number[]} tabIds
+ */
+
+/**
+ * @typedef {Object} RunSnapshot
+ * @property {string} snapshotId
+ * @property {number} createdAt
+ * @property {RunSnapshotTab[]} tabs
+ * @property {RunSnapshotGroup[]} priorGroups
+ * @property {{ groupedTabs: number, groupsCreated: number }} summary
+ */
+
+/**
+ * @typedef {Object} RevertHistoryEntry
+ * @property {string} snapshotId
+ * @property {number} createdAt
+ * @property {number} groupedTabs
+ * @property {number} groupsCreated
  */
 
 export const typeHints = {};
