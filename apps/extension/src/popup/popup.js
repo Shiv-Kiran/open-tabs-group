@@ -21,6 +21,7 @@ const excludedTabs = document.getElementById("excludedTabs");
 
 let previewState = null;
 const collapsedGroupIds = new Set();
+let includeScrapedContextSetting = true;
 
 function setStatus(message, tone = "neutral") {
   statusText.textContent = message;
@@ -71,6 +72,31 @@ function setBusyState(isBusy) {
   cancelPreviewBtn.disabled = isBusy;
   clearGroupsBtn.disabled = isBusy;
   revertBtn.disabled = isBusy;
+}
+
+async function loadClientSettings() {
+  const values = await chrome.storage.local.get(["settings.includeScrapedContext"]);
+  includeScrapedContextSetting =
+    values["settings.includeScrapedContext"] ?? true;
+}
+
+async function requestSiteAccessIfNeeded() {
+  if (!includeScrapedContextSetting) {
+    return { granted: true, attempted: false };
+  }
+
+  const permissions = { origins: ["https://*/*", "http://*/*"] };
+  try {
+    // This must run directly from popup user action context.
+    const granted = await chrome.permissions.request(permissions);
+    return { granted, attempted: true };
+  } catch (error) {
+    return {
+      granted: false,
+      attempted: true,
+      error: error?.message ?? "PERMISSION_REQUEST_FAILED"
+    };
+  }
 }
 
 function normalizePreview(preview) {
@@ -358,6 +384,11 @@ async function generatePreview() {
   setHint("");
 
   try {
+    const permissionState = await requestSiteAccessIfNeeded();
+    if (!permissionState.granted && includeScrapedContextSetting) {
+      setHint("Site access not granted. Using title/URL-only preview context.");
+    }
+
     const response = await sendMessage({ type: MESSAGE_TYPES.ORGANIZE_PREVIEW });
     if (!response?.ok) {
       if (response?.error === "MISSING_API_KEY") {
@@ -637,6 +668,7 @@ openOptionsBtn.addEventListener("click", () => {
 async function init() {
   const lastRun = await sendMessage({ type: MESSAGE_TYPES.GET_LAST_RUN });
   setSummary(lastRun?.ok ? lastRun.summary : null);
+  await loadClientSettings();
   await loadPreview();
   await refreshRevertHistory();
   setStatus("Ready.");

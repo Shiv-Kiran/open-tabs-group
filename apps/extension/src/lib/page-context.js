@@ -111,13 +111,8 @@ function extractionScript() {
 
 async function requestOptionalSiteAccess() {
   const permissions = { origins: ["https://*/*", "http://*/*"] };
-  const alreadyGranted = await chrome.permissions.contains(permissions);
-  if (alreadyGranted) {
-    return { granted: true, requested: false };
-  }
-
-  const granted = await chrome.permissions.request(permissions);
-  return { granted, requested: true };
+  const granted = await chrome.permissions.contains(permissions);
+  return { granted, requested: false };
 }
 
 /**
