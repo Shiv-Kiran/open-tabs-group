@@ -28,6 +28,8 @@ body {
   display: grid;
   gap: 10px;
   backdrop-filter: blur(10px);
+  max-height: 640px;
+  overflow-y: auto;
 }
 
 h1 {
@@ -93,6 +95,98 @@ button {
   border: 1px solid var(--border);
   padding: 8px 10px;
   border-radius: 8px;
+}
+
+.preview,
+.revert {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.preview-header {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.preview h2,
+.revert h2 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.preview-meta {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.preview-groups {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.preview-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  background: #fff8ef;
+}
+
+.preview-card h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+}
+
+.preview-rationale {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.preview-samples {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.preview-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+}
+
+.preview-actions button,
+.revert button,
+.revert select {
+  font: inherit;
+  font-size: 12px;
+}
+
+.preview-actions button,
+.revert button {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff8ef;
+  color: var(--text);
+  cursor: pointer;
+  padding: 8px;
+}
+
+.revert {
+  display: grid;
+  gap: 8px;
+}
+
+.revert select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  background: #fff8ef;
+  color: var(--text);
 }
 
 .link-btn {
