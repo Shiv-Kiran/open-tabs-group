@@ -3,10 +3,23 @@ import { MESSAGE_TYPES } from "../lib/messages.js";
 const organizeBtn = document.getElementById("organizeBtn");
 const openOptionsBtn = document.getElementById("openOptionsBtn");
 const statusText = document.getElementById("statusText");
+const hintText = document.getElementById("hintText");
 const summaryText = document.getElementById("summaryText");
 
-function setStatus(message) {
+function setStatus(message, tone = "neutral") {
   statusText.textContent = message;
+  statusText.dataset.tone = tone;
+}
+
+function setHint(message = "") {
+  if (!message) {
+    hintText.hidden = true;
+    hintText.textContent = "";
+    return;
+  }
+
+  hintText.hidden = false;
+  hintText.textContent = message;
 }
 
 function formatSummary(summary) {
@@ -37,7 +50,7 @@ function sendMessage(message) {
 async function init() {
   const response = await sendMessage({ type: MESSAGE_TYPES.GET_LAST_RUN });
   if (!response?.ok) {
-    setStatus("Unable to load last run summary.");
+    setStatus("Unable to load last run summary.", "error");
     return;
   }
 
@@ -47,15 +60,20 @@ async function init() {
 
 organizeBtn.addEventListener("click", async () => {
   organizeBtn.disabled = true;
-  setStatus("Organizing tabs...");
+  setHint("");
+  setStatus("Organizing tabs...", "loading");
 
   try {
     const response = await sendMessage({ type: MESSAGE_TYPES.ORGANIZE_NOW });
     if (!response?.ok) {
       if (response?.error === "MISSING_API_KEY") {
-        setStatus("Missing API key. Open settings to add it.");
+        setStatus("Missing API key.", "error");
+        setHint("Open Settings and paste your OpenAI API key.");
       } else {
-        setStatus(`Organize failed: ${response?.error ?? "Unknown error"}`);
+        setStatus(
+          `Organize failed: ${response?.error ?? "Unknown error"}`,
+          "error"
+        );
       }
       return;
     }
@@ -64,10 +82,11 @@ organizeBtn.addEventListener("click", async () => {
     setStatus(
       response.summary.usedFallback
         ? "Done with fallback grouping."
-        : "Done. Tabs organized."
+        : "Done. Tabs organized.",
+      "success"
     );
   } catch (error) {
-    setStatus(`Organize failed: ${error.message}`);
+    setStatus(`Organize failed: ${error.message}`, "error");
   } finally {
     organizeBtn.disabled = false;
   }
@@ -78,5 +97,5 @@ openOptionsBtn.addEventListener("click", () => {
 });
 
 void init().catch((error) => {
-  setStatus(`Init failed: ${error.message}`);
+  setStatus(`Init failed: ${error.message}`, "error");
 });
