@@ -1,4 +1,4 @@
-# Mindweave v0.1 Manual QA Checklist
+# Mindweave v0.1.1 Manual QA Checklist
 
 Date: 2026-02-15
 Branch: `feat/v0.1-weekend`
@@ -9,15 +9,20 @@ Branch: `feat/v0.1-weekend`
 
 ## Checklist
 - [ ] Missing API key shows actionable setup prompt in popup.
-- [ ] Organize groups tabs across multiple windows.
+- [ ] Generate Preview does not mutate tab groups before apply.
+- [ ] Apply Groups mutates tabs only after preview review.
 - [ ] Pinned tabs are included in grouping.
+- [ ] Optional site permission denied path still returns preview.
+- [ ] Optional site permission granted path enriches ambiguous tabs.
 - [ ] 100+ tab run completes without extension crash.
-- [ ] AI timeout triggers fallback and still groups tabs.
+- [ ] AI timeout triggers fallback and still generates preview.
 - [ ] Invalid AI JSON triggers fallback gracefully.
-- [ ] Existing grouped tabs can be regrouped without failures.
+- [ ] Existing grouped tabs can be regrouped without failures after apply.
 - [ ] Duplicate titles/URLs do not create empty groups.
 - [ ] Popup state transitions are clear (idle/loading/success/error).
 - [ ] Last run summary persists after popup/browser reopen.
+- [ ] Revert Selected restores latest snapshot.
+- [ ] Revert history keeps max 3 snapshots.
 
 ## What Was Executed in This Session
 - [x] `npm run build` passes for extension bundle.

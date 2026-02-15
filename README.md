@@ -1,19 +1,22 @@
-# Mindweave v0.1
+# Mindweave v0.1.1
 
-Weekend Chrome extension for one-click tab grouping.
+Chrome extension for AI-assisted tab grouping with safer preview and revert.
 
-## What v0.1 Does
-- Organizes tabs across all windows (including pinned tabs).
-- Uses one OpenAI call (BYOK) to generate tab groups.
-- Falls back to local heuristic grouping if AI fails.
-- Applies native Chrome Tab Groups with names and colors.
-- Stores last run summary in extension local storage.
+## What v0.1.1 Does
+- Generates a **preview** of proposed groups before applying.
+- Applies groups only when you click **Apply Groups**.
+- Uses enriched AI context:
+  - title + domain + full URL
+  - optional lightweight page context (description/headings/snippet)
+- Uses fallback local heuristics if AI is unavailable.
+- Stores revert snapshots and supports restoring the last 3 organize runs.
 
-## Current Scope (v0.1)
+## Current Scope (v0.1.1)
 - In scope:
-  - Popup with `Organize Now`
-  - Options page for API key/model/settings
-  - AI grouping + retry/timeout + heuristic fallback
+  - Preview-first organize flow
+  - Revert menu (last 3 snapshots)
+  - Options page for API key/model/settings/context toggles
+  - AI grouping + targeted enrichment + heuristic fallback
   - Build + package zip for release draft
 - Out of scope:
   - Focus mode
@@ -44,14 +47,18 @@ Weekend Chrome extension for one-click tab grouping.
 4. Open extension options and save:
    - `OpenAI API Key`
    - `Model` (default: `gpt-4o-mini`)
-   - `Include full URL` (optional)
+   - `Include full URL` (recommended ON)
+   - `Include lightweight page context` (recommended ON)
 
 ## Usage
 1. Open popup.
-2. Click `Organize Now`.
-3. Wait for status:
-   - `Done. Tabs organized.` (AI path)
-   - `Done with fallback grouping.` (heuristic path)
+2. Click `Generate Preview`.
+3. Review group cards (name, count, sample tabs, rationale).
+4. Choose:
+   - `Apply Groups`
+   - `Regenerate`
+   - `Cancel`
+5. If needed, use Revert section to restore a previous run.
 
 ## Commands
 - Build:
@@ -64,7 +71,7 @@ Weekend Chrome extension for one-click tab grouping.
   ```
 
 Packaged artifact is created at:
-- `apps/extension/release/mindweave-v0.1.0.zip`
+- `apps/extension/release/mindweave-v0.1.1.zip`
 
 ## Project Structure
 ```text
@@ -80,7 +87,7 @@ docs/
 ```
 
 ## Known Limits
-- Group quality depends on tab title/domain quality.
-- No tab content scraping in v0.1.
-- No server-side sync/backups in v0.1.
+- Revert is best-effort for currently open tabs in snapshot scope.
+- Page context enrichment requires optional site permission grant.
+- No server-side sync/backups in v0.1.1.
 - Manual QA in Chrome is required before store submission.
