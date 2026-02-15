@@ -27,8 +27,22 @@ function formatSummary(summary) {
     return "No runs yet.";
   }
 
-  const runDate = new Date(summary.ranAt).toLocaleString();
-  return `${summary.groupedTabs} tabs, ${summary.groupsCreated} groups, ${summary.skippedTabs} skipped. Last run: ${runDate}.`;
+  const runDate =
+    typeof summary.ranAt === "number"
+      ? new Date(summary.ranAt).toLocaleString()
+      : "Unknown";
+
+  const groupedTabs = Number.isInteger(summary.groupedTabs)
+    ? summary.groupedTabs
+    : 0;
+  const groupsCreated = Number.isInteger(summary.groupsCreated)
+    ? summary.groupsCreated
+    : 0;
+  const skippedTabs = Number.isInteger(summary.skippedTabs)
+    ? summary.skippedTabs
+    : 0;
+
+  return `${groupedTabs} tabs, ${groupsCreated} groups, ${skippedTabs} skipped. Last run: ${runDate}.`;
 }
 
 function setSummary(summary) {
