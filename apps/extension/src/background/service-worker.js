@@ -28,6 +28,9 @@ async function handleOrganizeNow() {
   let usedFallback = false;
   try {
     groups = await groupTabsWithAI(tabs, settings);
+    if (!Array.isArray(groups) || groups.length === 0) {
+      throw new Error("AI_GROUPS_EMPTY");
+    }
   } catch {
     groups = groupTabsHeuristic(tabs);
     usedFallback = true;

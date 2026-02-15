@@ -79,7 +79,23 @@ function validateGroups(rawGroups, tabCount) {
 }
 
 function parseResponsePayload(data, tabCount) {
-  const content = data?.choices?.[0]?.message?.content;
+  const rawContent = data?.choices?.[0]?.message?.content;
+
+  let content = rawContent;
+  if (Array.isArray(rawContent)) {
+    content = rawContent
+      .map((chunk) => {
+        if (typeof chunk === "string") {
+          return chunk;
+        }
+        if (typeof chunk?.text === "string") {
+          return chunk.text;
+        }
+        return "";
+      })
+      .join("\n");
+  }
+
   if (typeof content !== "string") {
     throw new Error("AI_RESPONSE_EMPTY");
   }
@@ -88,7 +104,15 @@ function parseResponsePayload(data, tabCount) {
   try {
     parsed = JSON.parse(content);
   } catch {
-    throw new Error("AI_RESPONSE_INVALID_JSON");
+    const extracted = content.match(/\{[\s\S]*\}/);
+    if (!extracted) {
+      throw new Error("AI_RESPONSE_INVALID_JSON");
+    }
+    try {
+      parsed = JSON.parse(extracted[0]);
+    } catch {
+      throw new Error("AI_RESPONSE_INVALID_JSON");
+    }
   }
 
   const groups = validateGroups(parsed?.groups, tabCount);

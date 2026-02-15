@@ -38,10 +38,22 @@ function sanitizeIndices(tabIndices, tabCount, alreadyGrouped) {
  * @returns {Promise<import("./models").ApplySummary>}
  */
 export async function applyTabGroups(tabs, suggestions) {
+  if (!Array.isArray(tabs) || !Array.isArray(suggestions) || tabs.length === 0) {
+    return {
+      groupedTabs: 0,
+      groupsCreated: 0,
+      skippedTabs: Array.isArray(tabs) ? tabs.length : 0
+    };
+  }
+
   const groupedIndices = new Set();
   let groupsCreated = 0;
 
   for (const suggestion of suggestions) {
+    if (!Array.isArray(suggestion?.tabIndices)) {
+      continue;
+    }
+
     const validIndices = sanitizeIndices(
       suggestion.tabIndices,
       tabs.length,
@@ -51,7 +63,12 @@ export async function applyTabGroups(tabs, suggestions) {
       continue;
     }
 
-    const tabIds = validIndices.map((index) => tabs[index].chromeTabId);
+    const tabIds = validIndices
+      .map((index) => tabs[index]?.chromeTabId)
+      .filter((tabId) => Number.isInteger(tabId));
+    if (tabIds.length === 0) {
+      continue;
+    }
     const groupId = await chrome.tabs.group({ tabIds });
 
     await chrome.tabGroups.update(groupId, {
