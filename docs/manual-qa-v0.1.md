@@ -14,6 +14,12 @@ Branch: `feat/v0.1-weekend`
 - [ ] Pinned tabs are included in grouping.
 - [ ] Optional site permission denied path still returns preview.
 - [ ] Optional site permission granted path enriches ambiguous tabs.
+- [ ] Drag/drop tabs between groups works before apply.
+- [ ] Drag/drop to Excluded keeps tabs unchanged on apply.
+- [ ] Rename group name is reflected in applied group title.
+- [ ] Delete single group removes it from apply.
+- [ ] Delete all preview groups results in no-op apply.
+- [ ] Close tab action removes tab and refreshes preview.
 - [ ] 100+ tab run completes without extension crash.
 - [ ] AI timeout triggers fallback and still generates preview.
 - [ ] Invalid AI JSON triggers fallback gracefully.
@@ -23,6 +29,8 @@ Branch: `feat/v0.1-weekend`
 - [ ] Last run summary persists after popup/browser reopen.
 - [ ] Revert Selected restores latest snapshot.
 - [ ] Revert history keeps max 3 snapshots.
+- [ ] Default behavior keeps tabs in original windows when applying groups.
+- [ ] Enabling cross-window move option allows mixed-window group apply behavior.
 
 ## What Was Executed in This Session
 - [x] `npm run build` passes for extension bundle.

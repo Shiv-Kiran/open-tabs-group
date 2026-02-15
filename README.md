@@ -5,6 +5,14 @@ Chrome extension for AI-assisted tab grouping with safer preview and revert.
 ## What v0.1.1 Does
 - Generates a **preview** of proposed groups before applying.
 - Applies groups only when you click **Apply Groups**.
+- Lets you edit preview groups before apply:
+  - drag/drop tabs across groups
+  - rename groups
+  - collapse groups
+  - delete individual groups
+  - delete all preview groups
+  - exclude specific tabs from apply
+  - close tabs directly from preview
 - Uses enriched AI context:
   - title + domain + full URL
   - optional lightweight page context (description/headings/snippet)
@@ -49,6 +57,8 @@ Chrome extension for AI-assisted tab grouping with safer preview and revert.
    - `Model` (default: `gpt-4o-mini`)
    - `Include full URL` (recommended ON)
    - `Include lightweight page context` (recommended ON)
+   - `Organize scope` (`All windows` or `Current window only`)
+   - `Allow moving tabs across windows` (default OFF)
 
 ## Usage
 1. Open popup.
@@ -58,6 +68,11 @@ Chrome extension for AI-assisted tab grouping with safer preview and revert.
    - `Apply Groups`
    - `Regenerate`
    - `Cancel`
+5. Optional edits before apply:
+   - Drag tabs between groups or to `Excluded`
+   - Rename group names inline
+   - Delete group or clear all preview groups
+   - Close individual tabs
 5. If needed, use Revert section to restore a previous run.
 
 ## Commands
@@ -91,3 +106,4 @@ docs/
 - Page context enrichment requires optional site permission grant.
 - No server-side sync/backups in v0.1.1.
 - Manual QA in Chrome is required before store submission.
+- If AI fails (for example invalid key/rate limits/network), preview runs in fallback mode and shows the error code in the hint text.
