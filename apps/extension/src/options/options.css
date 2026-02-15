@@ -1,12 +1,12 @@
 :root {
   color-scheme: light;
-  --bg: #f8f0e7;
-  --panel: #fff8f1;
-  --text: #3b3028;
-  --muted: #7b6a5b;
-  --primary: #e97a3d;
-  --primary-strong: #ca5e22;
-  --border: #ead5c1;
+  --bg: radial-gradient(circle at top, #ffe9cf 0%, #f7eadb 48%, #efe0cc 100%);
+  --panel: rgba(255, 248, 239, 0.88);
+  --text: #34271f;
+  --muted: #7a6451;
+  --primary: #df7341;
+  --primary-strong: #bf5a2f;
+  --border: #e7ccb4;
 }
 
 * {
@@ -18,7 +18,7 @@ body {
   min-height: 100vh;
   background: var(--bg);
   color: var(--text);
-  font-family: "Segoe UI", "SF Pro Text", Arial, sans-serif;
+  font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
 }
 
 .options {
@@ -27,6 +27,7 @@ body {
   padding: 28px 20px;
   display: grid;
   gap: 12px;
+  backdrop-filter: blur(10px);
 }
 
 h1 {
@@ -60,16 +61,18 @@ input[type="text"] {
 #saveBtn {
   width: fit-content;
   border: 0;
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--primary);
   color: #fff;
   padding: 10px 14px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease;
 }
 
 #saveBtn:hover {
   background: var(--primary-strong);
+  transform: translateY(-1px);
 }
 
 .status {

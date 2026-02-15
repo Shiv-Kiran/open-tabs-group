@@ -1,12 +1,14 @@
 :root {
   color-scheme: light;
-  --bg: #f7efe3;
-  --panel: #fff6eb;
-  --text: #3b3028;
-  --muted: #7b6a5b;
-  --primary: #e97a3d;
-  --primary-strong: #ca5e22;
-  --border: #ead5c1;
+  --bg: radial-gradient(circle at top, #ffe8cc 0%, #f6e8d8 45%, #eedeca 100%);
+  --panel: rgba(255, 248, 238, 0.88);
+  --text: #34271f;
+  --muted: #7a6451;
+  --primary: #df7341;
+  --primary-strong: #bf5a2f;
+  --border: #e7ccb4;
+  --success: #2f8a58;
+  --error: #b54835;
 }
 
 * {
@@ -18,13 +20,14 @@ body {
   min-width: 340px;
   background: var(--bg);
   color: var(--text);
-  font-family: "Segoe UI", "SF Pro Text", Arial, sans-serif;
+  font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
 }
 
 .popup {
   padding: 16px;
   display: grid;
   gap: 10px;
+  backdrop-filter: blur(10px);
 }
 
 h1 {
@@ -42,16 +45,18 @@ button {
 
 #organizeBtn {
   border: 0;
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--primary);
   color: #fff;
   padding: 10px 12px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease;
 }
 
 #organizeBtn:hover {
   background: var(--primary-strong);
+  transform: translateY(-1px);
 }
 
 #organizeBtn:disabled {
@@ -61,6 +66,24 @@ button {
 
 .status {
   font-size: 13px;
+  color: var(--muted);
+}
+
+.status[data-tone="loading"] {
+  color: var(--muted);
+}
+
+.status[data-tone="success"] {
+  color: var(--success);
+}
+
+.status[data-tone="error"] {
+  color: var(--error);
+}
+
+.hint {
+  margin-top: -4px;
+  font-size: 12px;
   color: var(--muted);
 }
 
