@@ -9,6 +9,14 @@ Ship a weekend `v0.1` Chrome extension that is immediately useful for you:
 
 This plan is optimized for frequent commits, safe rollback, and professional traceability.
 
+## Scope Control Rules
+1. Deliver only v0.1 capabilities listed in this file.
+2. Keep all non-essential ideas in a separate backlog section.
+3. Implement incrementally by stage; do not jump ahead.
+4. Commit at each completed task cluster and stage boundary.
+5. If stuck, return to the last stable checkpoint tag and continue from there.
+6. After resolving a bug, clean/refactor the path instead of layering temporary fixes.
+
 ## Public Interfaces / Contracts
 1. Runtime messages
 - `ORGANIZE_NOW`
@@ -120,6 +128,14 @@ Checkpoint tag:
 
 Definition of done:
 - Local unpacked use is stable and store draft artifact is ready.
+
+## Ideas for Later (Out of Scope for v0.1)
+1. Focus mode with hide/show group context.
+2. Archive summaries and one-click restore.
+3. Smart reminders and monthly reports.
+4. Decision-fatigue chooser with confidence cards.
+5. Backend sync and email delivery pipeline.
+6. Full high-fidelity Mindweave visual system.
 
 ## Git Discipline and Revert Strategy
 1. Work on branch: `feat/v0.1-weekend`.

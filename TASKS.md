@@ -1,5 +1,12 @@
 # Mindweave v0.1 Tasks
 
+## Scope Guardrails
+- [ ] Stay inside v0.1 features only
+- [ ] Move any new ideas to "Later Ideas"
+- [ ] Implement and verify one stage at a time
+- [ ] Commit at each task cluster/stage boundary
+- [ ] Refactor after bug fixes (no stacked hacks)
+
 ## Stage 0 - Bootstrap
 - [ ] Create `apps/extension` folder structure
 - [ ] Add Vite config and package scripts
@@ -54,3 +61,11 @@
 - [ ] Commit: `chore(release): add packaged build and setup docs`
 - [ ] Tag: `v0.1-stage-4`
 - [ ] Tag: `v0.1.0-weekend`
+
+## Later Ideas (Do Not Build in v0.1)
+- [ ] Focus mode
+- [ ] Archive memories
+- [ ] Reminder scheduler
+- [ ] Monthly report
+- [ ] Decision fatigue mode
+- [ ] Backend sync
