@@ -217,6 +217,10 @@ function renderPreview() {
     const groupCard = document.createElement("article");
     groupCard.className = "preview-card";
     groupCard.dataset.groupId = group.id;
+    const isCollapsed = collapsedGroupIds.has(group.id);
+    if (isCollapsed) {
+      groupCard.classList.add("is-collapsed");
+    }
 
     const header = document.createElement("div");
     header.className = "group-header";
@@ -238,7 +242,7 @@ function renderPreview() {
     collapseBtn.type = "button";
     collapseBtn.dataset.action = "toggle-collapse";
     collapseBtn.dataset.groupId = group.id;
-    collapseBtn.textContent = collapsedGroupIds.has(group.id) ? "Expand" : "Collapse";
+    collapseBtn.textContent = isCollapsed ? "Expand" : "Collapse";
     header.appendChild(collapseBtn);
 
     const deleteBtn = document.createElement("button");
@@ -253,6 +257,9 @@ function renderPreview() {
       const rationale = document.createElement("p");
       rationale.className = "preview-rationale";
       rationale.textContent = group.rationale;
+      if (isCollapsed) {
+        rationale.hidden = true;
+      }
       groupCard.appendChild(rationale);
     }
 
@@ -260,7 +267,7 @@ function renderPreview() {
     list.className = "tab-list dropzone";
     list.dataset.dropTarget = "group";
     list.dataset.groupId = group.id;
-    if (collapsedGroupIds.has(group.id)) {
+    if (isCollapsed) {
       list.hidden = true;
     }
 
@@ -375,6 +382,7 @@ async function refreshRevertHistory() {
 async function loadPreview() {
   const response = await sendMessage({ type: MESSAGE_TYPES.GET_PREVIEW });
   previewState = normalizePreview(response?.ok ? response.preview : null);
+  collapsedGroupIds.clear();
   renderPreview();
 }
 
@@ -401,6 +409,7 @@ async function generatePreview() {
     }
 
     previewState = normalizePreview(response.preview);
+    collapsedGroupIds.clear();
     renderPreview();
     setSummary(response.summary);
     if (previewState?.usedFallback) {
@@ -436,6 +445,7 @@ async function applyPreview() {
     }
 
     previewState = null;
+    collapsedGroupIds.clear();
     renderPreview();
     setSummary(response.summary);
     setStatus("Groups applied.", "success");
@@ -450,6 +460,7 @@ async function cancelPreview() {
   try {
     await sendMessage({ type: MESSAGE_TYPES.DISCARD_PREVIEW });
     previewState = null;
+    collapsedGroupIds.clear();
     renderPreview();
     setStatus("Preview discarded.", "neutral");
   } finally {
@@ -517,17 +528,22 @@ previewGroups.addEventListener("input", (event) => {
 
 function handlePreviewClick(event) {
   const target = event.target;
-  if (!(target instanceof HTMLElement)) {
+  if (!(target instanceof Element)) {
     return;
   }
 
-  const action = target.dataset.action;
+  const actionNode = target.closest("[data-action]");
+  if (!(actionNode instanceof HTMLElement)) {
+    return;
+  }
+
+  const action = actionNode.dataset.action;
   if (!action || !previewState) {
     return;
   }
 
   if (action === "toggle-collapse") {
-    const groupId = target.dataset.groupId;
+    const groupId = actionNode.dataset.groupId;
     if (!groupId) {
       return;
     }
@@ -541,12 +557,12 @@ function handlePreviewClick(event) {
   }
 
   if (action === "delete-group") {
-    deleteGroup(target.dataset.groupId);
+    deleteGroup(actionNode.dataset.groupId);
     return;
   }
 
   if (action === "exclude-tab") {
-    const tabIndex = Number(target.dataset.tabIndex);
+    const tabIndex = Number(actionNode.dataset.tabIndex);
     if (!Number.isInteger(tabIndex)) {
       return;
     }
@@ -555,7 +571,7 @@ function handlePreviewClick(event) {
   }
 
   if (action === "close-tab") {
-    const tabIndex = Number(target.dataset.tabIndex);
+    const tabIndex = Number(actionNode.dataset.tabIndex);
     if (!Number.isInteger(tabIndex)) {
       return;
     }

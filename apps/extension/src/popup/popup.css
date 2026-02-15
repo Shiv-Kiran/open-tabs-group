@@ -140,6 +140,10 @@ button {
   background: #fff8ef;
 }
 
+.preview-card.is-collapsed {
+  background: #fffdf8;
+}
+
 .group-header {
   display: grid;
   grid-template-columns: 1fr auto auto auto;
