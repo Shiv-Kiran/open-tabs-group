@@ -23,12 +23,90 @@ function createId(prefix) {
 }
 
 function summarizePreview(previewDraft) {
+  const groupedCount = previewDraft.groups.reduce(
+    (count, group) => count + (group.tabIndices?.length ?? 0),
+    0
+  );
   return {
-    groupedTabs: previewDraft.tabs.length,
+    groupedTabs: groupedCount,
     groupsCreated: previewDraft.groups.length,
-    skippedTabs: 0,
+    skippedTabs: (previewDraft.excludedTabIndices ?? []).length,
     usedFallback: previewDraft.usedFallback,
     ranAt: previewDraft.createdAt
+  };
+}
+
+function sanitizePreviewDraft(draft) {
+  if (!draft || !Array.isArray(draft.tabs)) {
+    return null;
+  }
+
+  const tabCount = draft.tabs.length;
+  const excludedSet = new Set(
+    (Array.isArray(draft.excludedTabIndices) ? draft.excludedTabIndices : [])
+      .filter((value) => Number.isInteger(value) && value >= 0 && value < tabCount)
+  );
+  const alreadyAssigned = new Set(excludedSet);
+
+  const groups = [];
+  for (const rawGroup of Array.isArray(draft.groups) ? draft.groups : []) {
+    const tabIndices = [];
+    for (const value of rawGroup?.tabIndices ?? []) {
+      if (!Number.isInteger(value) || value < 0 || value >= tabCount) {
+        continue;
+      }
+      if (alreadyAssigned.has(value)) {
+        continue;
+      }
+      alreadyAssigned.add(value);
+      tabIndices.push(value);
+    }
+
+    if (tabIndices.length === 0) {
+      continue;
+    }
+
+    groups.push({
+      id:
+        typeof rawGroup?.id === "string" && rawGroup.id.length > 0
+          ? rawGroup.id
+          : createId("group"),
+      name:
+        typeof rawGroup?.name === "string" && rawGroup.name.trim().length > 0
+          ? rawGroup.name.trim().slice(0, 40)
+          : "Focused Group",
+      tabIndices,
+      confidence:
+        typeof rawGroup?.confidence === "number" ? rawGroup.confidence : undefined,
+      rationale:
+        typeof rawGroup?.rationale === "string"
+          ? rawGroup.rationale.slice(0, 160)
+          : undefined,
+      sampleTitles: Array.isArray(rawGroup?.sampleTitles)
+        ? rawGroup.sampleTitles.slice(0, 3)
+        : undefined
+    });
+  }
+
+  for (let index = 0; index < tabCount; index += 1) {
+    if (!alreadyAssigned.has(index)) {
+      excludedSet.add(index);
+    }
+  }
+
+  return {
+    draftId:
+      typeof draft.draftId === "string" && draft.draftId.length > 0
+        ? draft.draftId
+        : createId("draft"),
+    createdAt:
+      typeof draft.createdAt === "number" ? draft.createdAt : Date.now(),
+    tabs: draft.tabs,
+    groups,
+    excludedTabIndices: [...excludedSet],
+    usedFallback: Boolean(draft.usedFallback),
+    enrichedContextUsed: Boolean(draft.enrichedContextUsed),
+    hint: typeof draft.hint === "string" ? draft.hint : ""
   };
 }
 
@@ -38,7 +116,10 @@ async function handleOrganizePreview() {
     return { ok: false, error: "MISSING_API_KEY" };
   }
 
-  const tabs = await collectTabs({ includeFullUrl: settings.includeFullUrl });
+  const tabs = await collectTabs({
+    includeFullUrl: settings.includeFullUrl,
+    scope: settings.organizeScope
+  });
   if (tabs.length === 0) {
     await clearPreviewDraft();
     const emptySummary = {
@@ -53,15 +134,17 @@ async function handleOrganizePreview() {
   }
 
   const previewResult = await buildPreviewFromTabs(tabs, settings);
-  const draft = {
+  const draft = sanitizePreviewDraft({
     draftId: createId("draft"),
     createdAt: Date.now(),
     tabs: previewResult.tabs,
     groups: previewResult.groups,
+    excludedTabIndices: [],
     usedFallback: previewResult.usedFallback,
     enrichedContextUsed: previewResult.enrichedContextUsed,
-    hint: previewResult.hint
-  };
+    hint: previewResult.hint,
+    aiErrorCode: previewResult.aiErrorCode
+  });
 
   await setPreviewDraft(draft);
   return {
@@ -130,14 +213,28 @@ async function captureSnapshot(tabs) {
   };
 }
 
-async function handleApplyPreview() {
-  const draft = await getPreviewDraft();
-  if (!draft) {
+async function handleApplyPreview(message) {
+  const settings = await getSettings();
+  const storedDraft = await getPreviewDraft();
+  if (!storedDraft) {
     return { ok: false, error: "NO_PREVIEW_DRAFT" };
   }
 
+  const incomingDraft =
+    message?.previewDraft &&
+    message.previewDraft.draftId === storedDraft.draftId
+      ? message.previewDraft
+      : storedDraft;
+
+  const draft = sanitizePreviewDraft(incomingDraft);
+  if (!draft) {
+    return { ok: false, error: "INVALID_PREVIEW_DRAFT" };
+  }
+
   const snapshot = await captureSnapshot(draft.tabs);
-  const applySummary = await applyTabGroups(draft.tabs, draft.groups);
+  const applySummary = await applyTabGroups(draft.tabs, draft.groups, {
+    allowCrossWindowGrouping: settings.allowCrossWindowGrouping
+  });
   snapshot.summary = {
     groupedTabs: applySummary.groupedTabs,
     groupsCreated: applySummary.groupsCreated
@@ -247,7 +344,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       case MESSAGE_TYPES.GET_PREVIEW:
         return { ok: true, preview: await getPreviewDraft() };
       case MESSAGE_TYPES.APPLY_PREVIEW:
-        return handleApplyPreview();
+        return handleApplyPreview(message);
       case MESSAGE_TYPES.DISCARD_PREVIEW:
         await clearPreviewDraft();
         return { ok: true };

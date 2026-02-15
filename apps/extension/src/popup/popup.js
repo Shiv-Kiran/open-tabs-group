@@ -4,6 +4,7 @@ const organizeBtn = document.getElementById("organizeBtn");
 const applyPreviewBtn = document.getElementById("applyPreviewBtn");
 const regeneratePreviewBtn = document.getElementById("regeneratePreviewBtn");
 const cancelPreviewBtn = document.getElementById("cancelPreviewBtn");
+const clearGroupsBtn = document.getElementById("clearGroupsBtn");
 const openOptionsBtn = document.getElementById("openOptionsBtn");
 const revertBtn = document.getElementById("revertBtn");
 const revertSelect = document.getElementById("revertSelect");
@@ -15,6 +16,11 @@ const summaryText = document.getElementById("summaryText");
 const previewSection = document.getElementById("previewSection");
 const previewMetaText = document.getElementById("previewMetaText");
 const previewGroups = document.getElementById("previewGroups");
+const excludedSection = document.getElementById("excludedSection");
+const excludedTabs = document.getElementById("excludedTabs");
+
+let previewState = null;
+const collapsedGroupIds = new Set();
 
 function setStatus(message, tone = "neutral") {
   statusText.textContent = message;
@@ -27,7 +33,6 @@ function setHint(message = "") {
     hintText.textContent = "";
     return;
   }
-
   hintText.hidden = false;
   hintText.textContent = message;
 }
@@ -47,54 +52,6 @@ function setSummary(summary) {
   } groups, ${summary.skippedTabs ?? 0} skipped. Last run: ${runDate}.`;
 }
 
-function createPreviewCard(group) {
-  const wrapper = document.createElement("article");
-  wrapper.className = "preview-card";
-
-  const title = document.createElement("h3");
-  title.textContent = `${group.name} (${group.tabIndices.length})`;
-  wrapper.appendChild(title);
-
-  if (group.rationale) {
-    const rationale = document.createElement("p");
-    rationale.className = "preview-rationale";
-    rationale.textContent = group.rationale;
-    wrapper.appendChild(rationale);
-  }
-
-  const list = document.createElement("ul");
-  list.className = "preview-samples";
-  for (const sample of group.sampleTitles ?? []) {
-    const item = document.createElement("li");
-    item.textContent = sample;
-    list.appendChild(item);
-  }
-
-  wrapper.appendChild(list);
-  return wrapper;
-}
-
-function renderPreview(preview) {
-  if (!preview) {
-    previewSection.hidden = true;
-    previewGroups.innerHTML = "";
-    previewMetaText.textContent = "";
-    return;
-  }
-
-  previewSection.hidden = false;
-  previewMetaText.textContent = `${preview.tabs.length} tabs across ${preview.groups.length} groups`;
-  previewGroups.innerHTML = "";
-
-  preview.groups.forEach((group) => {
-    previewGroups.appendChild(createPreviewCard(group));
-  });
-
-  if (preview.hint) {
-    setHint(preview.hint);
-  }
-}
-
 function sendMessage(message) {
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage(message, (response) => {
@@ -112,7 +69,258 @@ function setBusyState(isBusy) {
   applyPreviewBtn.disabled = isBusy;
   regeneratePreviewBtn.disabled = isBusy;
   cancelPreviewBtn.disabled = isBusy;
+  clearGroupsBtn.disabled = isBusy;
   revertBtn.disabled = isBusy;
+}
+
+function normalizePreview(preview) {
+  if (!preview || !Array.isArray(preview.tabs)) {
+    return null;
+  }
+
+  const tabCount = preview.tabs.length;
+  const used = new Set();
+  const groups = [];
+
+  for (const group of Array.isArray(preview.groups) ? preview.groups : []) {
+    const tabIndices = [];
+    for (const index of group.tabIndices ?? []) {
+      if (!Number.isInteger(index) || index < 0 || index >= tabCount) {
+        continue;
+      }
+      if (used.has(index)) {
+        continue;
+      }
+      used.add(index);
+      tabIndices.push(index);
+    }
+    if (tabIndices.length === 0) {
+      continue;
+    }
+    groups.push({
+      id: group.id || `group_${groups.length + 1}`,
+      name: group.name || `Group ${groups.length + 1}`,
+      tabIndices,
+      confidence: group.confidence,
+      rationale: group.rationale
+    });
+  }
+
+  const excluded = new Set(
+    (preview.excludedTabIndices ?? []).filter(
+      (index) => Number.isInteger(index) && index >= 0 && index < tabCount
+    )
+  );
+  for (let index = 0; index < tabCount; index += 1) {
+    if (!used.has(index)) {
+      excluded.add(index);
+    }
+  }
+
+  return {
+    draftId: preview.draftId,
+    createdAt: preview.createdAt,
+    tabs: preview.tabs,
+    groups,
+    excludedTabIndices: [...excluded],
+    usedFallback: Boolean(preview.usedFallback),
+    enrichedContextUsed: Boolean(preview.enrichedContextUsed),
+    hint: preview.hint || ""
+  };
+}
+
+function getTabLabel(tab) {
+  return `${tab.title} (${tab.domain})`;
+}
+
+function createTabItem(tabIndex, sourceGroupId) {
+  const tab = previewState.tabs[tabIndex];
+  const item = document.createElement("li");
+  item.className = "tab-item";
+  item.draggable = true;
+  item.dataset.tabIndex = String(tabIndex);
+  item.dataset.sourceGroupId = sourceGroupId;
+
+  const label = document.createElement("span");
+  label.className = "tab-label";
+  label.textContent = getTabLabel(tab);
+  item.appendChild(label);
+
+  const actions = document.createElement("div");
+  actions.className = "tab-actions";
+
+  const excludeBtn = document.createElement("button");
+  excludeBtn.type = "button";
+  excludeBtn.dataset.action = "exclude-tab";
+  excludeBtn.dataset.tabIndex = String(tabIndex);
+  excludeBtn.textContent = "Exclude";
+  actions.appendChild(excludeBtn);
+
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.dataset.action = "close-tab";
+  closeBtn.dataset.tabIndex = String(tabIndex);
+  closeBtn.textContent = "Close";
+  actions.appendChild(closeBtn);
+
+  item.appendChild(actions);
+  return item;
+}
+
+function renderPreview() {
+  if (!previewState) {
+    previewSection.hidden = true;
+    previewGroups.innerHTML = "";
+    excludedSection.hidden = true;
+    excludedTabs.innerHTML = "";
+    previewMetaText.textContent = "";
+    return;
+  }
+
+  previewSection.hidden = false;
+  previewGroups.innerHTML = "";
+  const groupedCount = previewState.groups.reduce(
+    (count, group) => count + group.tabIndices.length,
+    0
+  );
+  previewMetaText.textContent = `${groupedCount} grouped, ${
+    previewState.excludedTabIndices.length
+  } excluded`;
+
+  for (const group of previewState.groups) {
+    const groupCard = document.createElement("article");
+    groupCard.className = "preview-card";
+    groupCard.dataset.groupId = group.id;
+
+    const header = document.createElement("div");
+    header.className = "group-header";
+
+    const nameInput = document.createElement("input");
+    nameInput.className = "group-name-input";
+    nameInput.type = "text";
+    nameInput.value = group.name;
+    nameInput.dataset.groupId = group.id;
+    nameInput.dataset.action = "rename-group";
+    header.appendChild(nameInput);
+
+    const count = document.createElement("span");
+    count.className = "group-count";
+    count.textContent = `${group.tabIndices.length} tabs`;
+    header.appendChild(count);
+
+    const collapseBtn = document.createElement("button");
+    collapseBtn.type = "button";
+    collapseBtn.dataset.action = "toggle-collapse";
+    collapseBtn.dataset.groupId = group.id;
+    collapseBtn.textContent = collapsedGroupIds.has(group.id) ? "Expand" : "Collapse";
+    header.appendChild(collapseBtn);
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.dataset.action = "delete-group";
+    deleteBtn.dataset.groupId = group.id;
+    deleteBtn.textContent = "Delete Group";
+    header.appendChild(deleteBtn);
+    groupCard.appendChild(header);
+
+    if (group.rationale) {
+      const rationale = document.createElement("p");
+      rationale.className = "preview-rationale";
+      rationale.textContent = group.rationale;
+      groupCard.appendChild(rationale);
+    }
+
+    const list = document.createElement("ul");
+    list.className = "tab-list dropzone";
+    list.dataset.dropTarget = "group";
+    list.dataset.groupId = group.id;
+    if (collapsedGroupIds.has(group.id)) {
+      list.hidden = true;
+    }
+
+    for (const tabIndex of group.tabIndices) {
+      list.appendChild(createTabItem(tabIndex, group.id));
+    }
+
+    groupCard.appendChild(list);
+    previewGroups.appendChild(groupCard);
+  }
+
+  excludedTabs.innerHTML = "";
+  for (const tabIndex of previewState.excludedTabIndices) {
+    excludedTabs.appendChild(createTabItem(tabIndex, "excluded"));
+  }
+  excludedSection.hidden = previewState.excludedTabIndices.length === 0;
+}
+
+function removeTabEverywhere(tabIndex) {
+  previewState.groups.forEach((group) => {
+    group.tabIndices = group.tabIndices.filter((value) => value !== tabIndex);
+  });
+  previewState.groups = previewState.groups.filter((group) => group.tabIndices.length > 0);
+  previewState.excludedTabIndices = previewState.excludedTabIndices.filter(
+    (value) => value !== tabIndex
+  );
+}
+
+function moveTabToGroup(tabIndex, targetGroupId) {
+  if (!previewState) {
+    return;
+  }
+  removeTabEverywhere(tabIndex);
+
+  if (targetGroupId === "excluded") {
+    previewState.excludedTabIndices.push(tabIndex);
+  } else {
+    const targetGroup = previewState.groups.find((group) => group.id === targetGroupId);
+    if (targetGroup) {
+      targetGroup.tabIndices.push(tabIndex);
+    } else {
+      previewState.excludedTabIndices.push(tabIndex);
+    }
+  }
+  renderPreview();
+}
+
+function deleteGroup(groupId) {
+  const group = previewState.groups.find((value) => value.id === groupId);
+  if (!group) {
+    return;
+  }
+  for (const tabIndex of group.tabIndices) {
+    if (!previewState.excludedTabIndices.includes(tabIndex)) {
+      previewState.excludedTabIndices.push(tabIndex);
+    }
+  }
+  previewState.groups = previewState.groups.filter((value) => value.id !== groupId);
+  collapsedGroupIds.delete(groupId);
+  renderPreview();
+}
+
+function clearAllGroups() {
+  for (const group of previewState.groups) {
+    for (const tabIndex of group.tabIndices) {
+      if (!previewState.excludedTabIndices.includes(tabIndex)) {
+        previewState.excludedTabIndices.push(tabIndex);
+      }
+    }
+  }
+  previewState.groups = [];
+  collapsedGroupIds.clear();
+  renderPreview();
+}
+
+function getApplyPayload() {
+  return {
+    draftId: previewState.draftId,
+    createdAt: previewState.createdAt,
+    tabs: previewState.tabs,
+    groups: previewState.groups,
+    excludedTabIndices: previewState.excludedTabIndices,
+    usedFallback: previewState.usedFallback,
+    enrichedContextUsed: previewState.enrichedContextUsed,
+    hint: previewState.hint
+  };
 }
 
 async function refreshRevertHistory() {
@@ -129,18 +337,19 @@ async function refreshRevertHistory() {
   }
 
   revertSelect.innerHTML = "";
-  history.forEach((entry) => {
+  for (const entry of history) {
     const option = document.createElement("option");
     const date = new Date(entry.createdAt).toLocaleString();
     option.value = entry.snapshotId;
     option.textContent = `${date} - ${entry.groupedTabs} tabs / ${entry.groupsCreated} groups`;
     revertSelect.appendChild(option);
-  });
+  }
 }
 
-async function refreshPreview() {
+async function loadPreview() {
   const response = await sendMessage({ type: MESSAGE_TYPES.GET_PREVIEW });
-  renderPreview(response?.ok ? response.preview : null);
+  previewState = normalizePreview(response?.ok ? response.preview : null);
+  renderPreview();
 }
 
 async function generatePreview() {
@@ -160,26 +369,43 @@ async function generatePreview() {
       return;
     }
 
-    renderPreview(response.preview);
+    previewState = normalizePreview(response.preview);
+    renderPreview();
     setSummary(response.summary);
-    setStatus("Preview ready. Review and apply.", "success");
+    if (previewState?.usedFallback) {
+      setStatus("Preview ready (fallback mode).", "warning");
+    } else {
+      setStatus("Preview ready. Edit and apply.", "success");
+    }
+    if (previewState?.hint) {
+      setHint(previewState.hint);
+    }
   } finally {
     setBusyState(false);
   }
 }
 
 async function applyPreview() {
+  if (!previewState) {
+    setStatus("No preview to apply.", "error");
+    return;
+  }
+
   setBusyState(true);
   setStatus("Applying groups...", "loading");
 
   try {
-    const response = await sendMessage({ type: MESSAGE_TYPES.APPLY_PREVIEW });
+    const response = await sendMessage({
+      type: MESSAGE_TYPES.APPLY_PREVIEW,
+      previewDraft: getApplyPayload()
+    });
     if (!response?.ok) {
       setStatus(`Apply failed: ${response?.error ?? "Unknown error"}`, "error");
       return;
     }
 
-    renderPreview(null);
+    previewState = null;
+    renderPreview();
     setSummary(response.summary);
     setStatus("Groups applied.", "success");
     await refreshRevertHistory();
@@ -192,7 +418,8 @@ async function cancelPreview() {
   setBusyState(true);
   try {
     await sendMessage({ type: MESSAGE_TYPES.DISCARD_PREVIEW });
-    renderPreview(null);
+    previewState = null;
+    renderPreview();
     setStatus("Preview discarded.", "neutral");
   } finally {
     setBusyState(false);
@@ -207,7 +434,7 @@ async function revertSelected() {
   }
 
   setBusyState(true);
-  setStatus("Reverting grouping...", "loading");
+  setStatus("Reverting...", "loading");
   try {
     const response = await sendMessage({
       type: MESSAGE_TYPES.REVERT_RUN,
@@ -220,18 +447,145 @@ async function revertSelected() {
     setSummary(response.summary);
     setStatus("Revert complete.", "success");
     await refreshRevertHistory();
+    await loadPreview();
   } finally {
     setBusyState(false);
   }
 }
 
-async function init() {
-  const lastRun = await sendMessage({ type: MESSAGE_TYPES.GET_LAST_RUN });
-  setSummary(lastRun?.ok ? lastRun.summary : null);
-  await refreshPreview();
-  await refreshRevertHistory();
-  setStatus("Ready.");
+async function closeTabAndRefresh(tabIndex) {
+  const tab = previewState?.tabs?.[tabIndex];
+  if (!tab || !Number.isInteger(tab.chromeTabId)) {
+    return;
+  }
+  await chrome.tabs.remove(tab.chromeTabId);
+  await generatePreview();
 }
+
+previewGroups.addEventListener("input", (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement)) {
+    return;
+  }
+  if (target.dataset.action !== "rename-group") {
+    return;
+  }
+  const groupId = target.dataset.groupId;
+  const group = previewState?.groups?.find((value) => value.id === groupId);
+  if (!group) {
+    return;
+  }
+  group.name = target.value;
+});
+
+previewGroups.addEventListener("click", (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+
+  const action = target.dataset.action;
+  if (!action || !previewState) {
+    return;
+  }
+
+  if (action === "toggle-collapse") {
+    const groupId = target.dataset.groupId;
+    if (!groupId) {
+      return;
+    }
+    if (collapsedGroupIds.has(groupId)) {
+      collapsedGroupIds.delete(groupId);
+    } else {
+      collapsedGroupIds.add(groupId);
+    }
+    renderPreview();
+    return;
+  }
+
+  if (action === "delete-group") {
+    deleteGroup(target.dataset.groupId);
+    return;
+  }
+
+  if (action === "exclude-tab") {
+    const tabIndex = Number(target.dataset.tabIndex);
+    if (!Number.isInteger(tabIndex)) {
+      return;
+    }
+    moveTabToGroup(tabIndex, "excluded");
+    return;
+  }
+
+  if (action === "close-tab") {
+    const tabIndex = Number(target.dataset.tabIndex);
+    if (!Number.isInteger(tabIndex)) {
+      return;
+    }
+    void closeTabAndRefresh(tabIndex).catch((error) => {
+      setStatus(`Close failed: ${error.message}`, "error");
+    });
+  }
+});
+
+function handleDragStart(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+  const tabIndex = target.dataset.tabIndex;
+  if (typeof tabIndex !== "string") {
+    return;
+  }
+  event.dataTransfer?.setData("text/plain", tabIndex);
+}
+
+function handleDragOver(event) {
+  if (!(event.target instanceof HTMLElement)) {
+    return;
+  }
+  const dropTarget = event.target.closest(".dropzone");
+  if (!dropTarget) {
+    return;
+  }
+  event.preventDefault();
+}
+
+function handleDrop(event) {
+  if (!(event.target instanceof HTMLElement) || !previewState) {
+    return;
+  }
+
+  const dropzone = event.target.closest(".dropzone");
+  if (!dropzone) {
+    return;
+  }
+  event.preventDefault();
+
+  const rawValue = event.dataTransfer?.getData("text/plain");
+  const tabIndex = Number(rawValue);
+  if (!Number.isInteger(tabIndex)) {
+    return;
+  }
+
+  if (dropzone.dataset.dropTarget === "excluded") {
+    moveTabToGroup(tabIndex, "excluded");
+    return;
+  }
+
+  const groupId = dropzone.dataset.groupId;
+  if (!groupId) {
+    return;
+  }
+  moveTabToGroup(tabIndex, groupId);
+}
+
+previewGroups.addEventListener("dragstart", handleDragStart);
+previewGroups.addEventListener("dragover", handleDragOver);
+previewGroups.addEventListener("drop", handleDrop);
+excludedTabs.addEventListener("dragstart", handleDragStart);
+excludedTabs.addEventListener("dragover", handleDragOver);
+excludedTabs.addEventListener("drop", handleDrop);
 
 organizeBtn.addEventListener("click", () => {
   void generatePreview().catch((error) => {
@@ -249,7 +603,7 @@ applyPreviewBtn.addEventListener("click", () => {
 
 regeneratePreviewBtn.addEventListener("click", () => {
   void generatePreview().catch((error) => {
-    setStatus(`Preview failed: ${error.message}`, "error");
+    setStatus(`Regenerate failed: ${error.message}`, "error");
     setBusyState(false);
   });
 });
@@ -259,6 +613,14 @@ cancelPreviewBtn.addEventListener("click", () => {
     setStatus(`Cancel failed: ${error.message}`, "error");
     setBusyState(false);
   });
+});
+
+clearGroupsBtn.addEventListener("click", () => {
+  if (!previewState) {
+    return;
+  }
+  clearAllGroups();
+  setStatus("All preview groups removed. Tabs are now excluded.", "neutral");
 });
 
 revertBtn.addEventListener("click", () => {
@@ -271,6 +633,14 @@ revertBtn.addEventListener("click", () => {
 openOptionsBtn.addEventListener("click", () => {
   chrome.runtime.openOptionsPage();
 });
+
+async function init() {
+  const lastRun = await sendMessage({ type: MESSAGE_TYPES.GET_LAST_RUN });
+  setSummary(lastRun?.ok ? lastRun.summary : null);
+  await loadPreview();
+  await refreshRevertHistory();
+  setStatus("Ready.");
+}
 
 void init().catch((error) => {
   setStatus(`Init failed: ${error.message}`, "error");

@@ -31,6 +31,21 @@
         Include lightweight page context (description/headings/snippet)
       </label>
 
+      <label for="organizeScope">Organize scope</label>
+      <select id="organizeScope" name="organizeScope">
+        <option value="all">All windows</option>
+        <option value="current">Current window only</option>
+      </select>
+
+      <label class="checkbox">
+        <input
+          id="allowCrossWindowGrouping"
+          name="allowCrossWindowGrouping"
+          type="checkbox"
+        />
+        Allow moving tabs across windows when applying groups
+      </label>
+
       <button id="saveBtn" type="button">Save Settings</button>
       <p id="statusText" class="status">Ready.</p>
     </main>

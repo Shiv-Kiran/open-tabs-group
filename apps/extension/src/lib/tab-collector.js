@@ -55,11 +55,13 @@ function toOrganizeTab(tab, includeFullUrl) {
 
 /**
  * Collects tabs across all windows and returns normalized tab metadata.
- * @param {{ includeFullUrl: boolean }} options
+ * @param {{ includeFullUrl: boolean, scope?: "all" | "current" }} options
  */
 export async function collectTabs(options) {
   const includeFullUrl = Boolean(options?.includeFullUrl);
-  const allTabs = await chrome.tabs.query({});
+  const scope = options?.scope === "current" ? "current" : "all";
+  const query = scope === "current" ? { lastFocusedWindow: true } : {};
+  const allTabs = await chrome.tabs.query(query);
   const supportedTabs = allTabs.filter(
     (tab) => typeof tab.id === "number" && isSupportedUrl(tab.url)
   );

@@ -6,6 +6,10 @@ const includeFullUrlInput = document.getElementById("includeFullUrl");
 const includeScrapedContextInput = document.getElementById(
   "includeScrapedContext"
 );
+const organizeScopeInput = document.getElementById("organizeScope");
+const allowCrossWindowGroupingInput = document.getElementById(
+  "allowCrossWindowGrouping"
+);
 const saveBtn = document.getElementById("saveBtn");
 const statusText = document.getElementById("statusText");
 
@@ -19,6 +23,8 @@ async function loadSettings() {
   modelInput.value = settings.model || DEFAULT_SETTINGS.model;
   includeFullUrlInput.checked = settings.includeFullUrl;
   includeScrapedContextInput.checked = settings.includeScrapedContext;
+  organizeScopeInput.value = settings.organizeScope || DEFAULT_SETTINGS.organizeScope;
+  allowCrossWindowGroupingInput.checked = settings.allowCrossWindowGrouping;
 }
 
 async function handleSave() {
@@ -29,12 +35,16 @@ async function handleSave() {
   const model = modelInput.value.trim() || DEFAULT_SETTINGS.model;
   const includeFullUrl = includeFullUrlInput.checked;
   const includeScrapedContext = includeScrapedContextInput.checked;
+  const organizeScope = organizeScopeInput.value || DEFAULT_SETTINGS.organizeScope;
+  const allowCrossWindowGrouping = allowCrossWindowGroupingInput.checked;
 
   await saveSettings({
     openaiApiKey,
     model,
     includeFullUrl,
-    includeScrapedContext
+    includeScrapedContext,
+    organizeScope,
+    allowCrossWindowGrouping
   });
 
   setStatus("Saved.");

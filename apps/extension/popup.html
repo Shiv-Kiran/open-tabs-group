@@ -22,11 +22,17 @@
           <p id="previewMetaText" class="preview-meta"></p>
         </div>
         <div id="previewGroups" class="preview-groups"></div>
+        <div id="excludedSection" class="excluded" hidden>
+          <h3>Excluded From Apply</h3>
+          <p class="preview-meta">Dropped here tabs stay unchanged when applying.</p>
+          <ul id="excludedTabs" class="tab-list dropzone" data-drop-target="excluded"></ul>
+        </div>
         <div class="preview-actions">
           <button id="applyPreviewBtn" type="button">Apply Groups</button>
           <button id="regeneratePreviewBtn" type="button">Regenerate</button>
           <button id="cancelPreviewBtn" type="button">Cancel</button>
         </div>
+        <button id="clearGroupsBtn" type="button">Delete All Preview Groups</button>
       </section>
 
       <section class="revert">

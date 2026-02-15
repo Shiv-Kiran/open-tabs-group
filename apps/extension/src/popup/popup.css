@@ -9,6 +9,7 @@
   --border: #e7ccb4;
   --success: #2f8a58;
   --error: #b54835;
+  --warning: #9b6a10;
 }
 
 * {
@@ -83,6 +84,10 @@ button {
   color: var(--error);
 }
 
+.status[data-tone="warning"] {
+  color: var(--warning);
+}
+
 .hint {
   margin-top: -4px;
   font-size: 12px;
@@ -135,9 +140,27 @@ button {
   background: #fff8ef;
 }
 
-.preview-card h3 {
-  margin: 0 0 4px;
-  font-size: 13px;
+.group-header {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.group-name-input {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px;
+  font: inherit;
+  font-size: 12px;
+  background: #fffdf8;
+}
+
+.group-count {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
 }
 
 .preview-rationale {
@@ -146,9 +169,71 @@ button {
   font-size: 12px;
 }
 
-.preview-samples {
+.tab-list {
   margin: 0;
-  padding-left: 16px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.tab-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px;
+  background: #fffdf8;
+}
+
+.tab-item[draggable="true"] {
+  cursor: grab;
+}
+
+.tab-label {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.tab-actions button {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff8ef;
+  color: var(--text);
+  font-size: 11px;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+
+.dropzone {
+  min-height: 24px;
+}
+
+.excluded {
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 8px;
+}
+
+.excluded h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+}
+
+.preview-samples,
+.tab-list li {
+  margin: 0;
+  padding-left: 0;
   font-size: 12px;
   color: var(--text);
 }
@@ -179,6 +264,16 @@ button {
 .revert {
   display: grid;
   gap: 8px;
+}
+
+#clearGroupsBtn {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 8px;
+  font-size: 12px;
 }
 
 .revert select {

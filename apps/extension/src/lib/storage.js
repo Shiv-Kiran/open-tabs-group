@@ -2,6 +2,9 @@ const SETTINGS_OPENAI_KEY = "settings.openaiApiKey";
 const SETTINGS_MODEL = "settings.model";
 const SETTINGS_INCLUDE_FULL_URL = "settings.includeFullUrl";
 const SETTINGS_INCLUDE_SCRAPED_CONTEXT = "settings.includeScrapedContext";
+const SETTINGS_ORGANIZE_SCOPE = "settings.organizeScope";
+const SETTINGS_ALLOW_CROSS_WINDOW_GROUPING =
+  "settings.allowCrossWindowGrouping";
 const LAST_RUN_SUMMARY = "runs.lastSummary";
 const PREVIEW_DRAFT = "runs.previewDraft";
 const REVERT_HISTORY = "runs.revertHistory";
@@ -12,7 +15,9 @@ export const DEFAULT_SETTINGS = Object.freeze({
   openaiApiKey: "",
   model: "gpt-4o-mini",
   includeFullUrl: true,
-  includeScrapedContext: true
+  includeScrapedContext: true,
+  organizeScope: "all",
+  allowCrossWindowGrouping: false
 });
 
 async function getValues(keys) {
@@ -28,7 +33,9 @@ export async function getSettings() {
     SETTINGS_OPENAI_KEY,
     SETTINGS_MODEL,
     SETTINGS_INCLUDE_FULL_URL,
-    SETTINGS_INCLUDE_SCRAPED_CONTEXT
+    SETTINGS_INCLUDE_SCRAPED_CONTEXT,
+    SETTINGS_ORGANIZE_SCOPE,
+    SETTINGS_ALLOW_CROSS_WINDOW_GROUPING
   ]);
 
   return {
@@ -38,7 +45,12 @@ export async function getSettings() {
       values[SETTINGS_INCLUDE_FULL_URL] ?? DEFAULT_SETTINGS.includeFullUrl,
     includeScrapedContext:
       values[SETTINGS_INCLUDE_SCRAPED_CONTEXT] ??
-      DEFAULT_SETTINGS.includeScrapedContext
+      DEFAULT_SETTINGS.includeScrapedContext,
+    organizeScope:
+      values[SETTINGS_ORGANIZE_SCOPE] ?? DEFAULT_SETTINGS.organizeScope,
+    allowCrossWindowGrouping:
+      values[SETTINGS_ALLOW_CROSS_WINDOW_GROUPING] ??
+      DEFAULT_SETTINGS.allowCrossWindowGrouping
   };
 }
 
@@ -49,7 +61,12 @@ export async function saveSettings(settings) {
     [SETTINGS_INCLUDE_FULL_URL]:
       settings.includeFullUrl ?? DEFAULT_SETTINGS.includeFullUrl,
     [SETTINGS_INCLUDE_SCRAPED_CONTEXT]:
-      settings.includeScrapedContext ?? DEFAULT_SETTINGS.includeScrapedContext
+      settings.includeScrapedContext ?? DEFAULT_SETTINGS.includeScrapedContext,
+    [SETTINGS_ORGANIZE_SCOPE]:
+      settings.organizeScope ?? DEFAULT_SETTINGS.organizeScope,
+    [SETTINGS_ALLOW_CROSS_WINDOW_GROUPING]:
+      settings.allowCrossWindowGrouping ??
+      DEFAULT_SETTINGS.allowCrossWindowGrouping
   });
 }
 

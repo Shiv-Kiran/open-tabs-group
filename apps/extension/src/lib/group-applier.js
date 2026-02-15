@@ -32,12 +32,27 @@ function sanitizeIndices(tabIndices, tabCount, alreadyGrouped) {
   return unique;
 }
 
+function partitionByWindow(validIndices, tabs) {
+  const windowBuckets = new Map();
+  for (const index of validIndices) {
+    const windowId = tabs[index]?.windowId;
+    const bucketKey = Number.isInteger(windowId) ? windowId : -1;
+    const bucket = windowBuckets.get(bucketKey) ?? [];
+    bucket.push(index);
+    windowBuckets.set(bucketKey, bucket);
+  }
+  return [...windowBuckets.values()];
+}
+
 /**
  * @param {import("./models").OrganizeRequestTab[]} tabs
  * @param {import("./models").GroupSuggestion[]} suggestions
+ * @param {{ allowCrossWindowGrouping?: boolean }=} options
  * @returns {Promise<import("./models").ApplySummary>}
  */
-export async function applyTabGroups(tabs, suggestions) {
+export async function applyTabGroups(tabs, suggestions, options = {}) {
+  const allowCrossWindowGrouping = Boolean(options.allowCrossWindowGrouping);
+
   if (!Array.isArray(tabs) || !Array.isArray(suggestions) || tabs.length === 0) {
     return {
       groupedTabs: 0,
@@ -63,20 +78,26 @@ export async function applyTabGroups(tabs, suggestions) {
       continue;
     }
 
-    const tabIds = validIndices
-      .map((index) => tabs[index]?.chromeTabId)
-      .filter((tabId) => Number.isInteger(tabId));
-    if (tabIds.length === 0) {
-      continue;
+    const groupedIndexSets = allowCrossWindowGrouping
+      ? [validIndices]
+      : partitionByWindow(validIndices, tabs);
+
+    for (const groupedIndices of groupedIndexSets) {
+      const tabIds = groupedIndices
+        .map((index) => tabs[index]?.chromeTabId)
+        .filter((tabId) => Number.isInteger(tabId));
+      if (tabIds.length === 0) {
+        continue;
+      }
+      const groupId = await chrome.tabs.group({ tabIds });
+
+      await chrome.tabGroups.update(groupId, {
+        title: suggestion.name.slice(0, 40),
+        color: colorForGroup(groupsCreated)
+      });
+
+      groupsCreated += 1;
     }
-    const groupId = await chrome.tabs.group({ tabIds });
-
-    await chrome.tabGroups.update(groupId, {
-      title: suggestion.name.slice(0, 40),
-      color: colorForGroup(groupsCreated)
-    });
-
-    groupsCreated += 1;
   }
 
   return {

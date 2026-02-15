@@ -28,6 +28,7 @@ export async function buildPreviewFromTabs(tabs, settings) {
   let usedFallback = false;
   let enrichedContextUsed = false;
   let hint = "";
+  let aiErrorCode = "";
 
   try {
     groups = await groupTabsWithAI(workingTabs, settings);
@@ -41,16 +42,20 @@ export async function buildPreviewFromTabs(tabs, settings) {
         enrichedContextUsed = true;
         try {
           groups = await groupTabsWithAI(workingTabs, settings);
-        } catch {
-          // keep first pass groups
+        } catch (error) {
+          aiErrorCode = error?.message ?? "UNKNOWN_AI_ERROR";
+          hint =
+            hint ||
+            `Second-pass AI enrichment failed (${aiErrorCode}). Kept first-pass groups.`;
         }
       }
     }
-  } catch {
+  } catch (error) {
     groups = groupTabsHeuristic(workingTabs);
     usedFallback = true;
+    aiErrorCode = error?.message ?? "UNKNOWN_AI_ERROR";
     if (!hint) {
-      hint = "AI unavailable. Used local heuristic grouping.";
+      hint = `AI request failed (${aiErrorCode}). Used local heuristic grouping.`;
     }
   }
 
@@ -62,6 +67,7 @@ export async function buildPreviewFromTabs(tabs, settings) {
     groups: previewGroups,
     usedFallback,
     enrichedContextUsed,
-    hint
+    hint,
+    aiErrorCode
   };
 }
