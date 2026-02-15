@@ -489,7 +489,13 @@ async function closeTabAndRefresh(tabIndex) {
   if (!tab || !Number.isInteger(tab.chromeTabId)) {
     return;
   }
-  await chrome.tabs.remove(tab.chromeTabId);
+  const closeResponse = await sendMessage({
+    type: MESSAGE_TYPES.CLOSE_TAB,
+    tabId: tab.chromeTabId
+  });
+  if (!closeResponse?.ok) {
+    throw new Error(closeResponse?.error ?? "TAB_CLOSE_FAILED");
+  }
   await generatePreview();
 }
 
@@ -509,7 +515,7 @@ previewGroups.addEventListener("input", (event) => {
   group.name = target.value;
 });
 
-previewGroups.addEventListener("click", (event) => {
+function handlePreviewClick(event) {
   const target = event.target;
   if (!(target instanceof HTMLElement)) {
     return;
@@ -557,7 +563,10 @@ previewGroups.addEventListener("click", (event) => {
       setStatus(`Close failed: ${error.message}`, "error");
     });
   }
-});
+}
+
+previewGroups.addEventListener("click", handlePreviewClick);
+excludedTabs.addEventListener("click", handlePreviewClick);
 
 function handleDragStart(event) {
   const target = event.target;

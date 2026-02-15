@@ -335,6 +335,19 @@ async function handleListRevertHistory() {
   };
 }
 
+async function handleCloseTab(tabId) {
+  if (!Number.isInteger(tabId)) {
+    return { ok: false, error: "INVALID_TAB_ID" };
+  }
+
+  try {
+    await chrome.tabs.remove(tabId);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error?.message ?? "TAB_CLOSE_FAILED" };
+  }
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   (async () => {
     switch (message?.type) {
@@ -352,6 +365,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         return handleListRevertHistory();
       case MESSAGE_TYPES.REVERT_RUN:
         return handleRevertRun(message?.snapshotId);
+      case MESSAGE_TYPES.CLOSE_TAB:
+        return handleCloseTab(message?.tabId);
       case MESSAGE_TYPES.GET_LAST_RUN:
         return { ok: true, summary: await getLastRunSummary() };
       default:
