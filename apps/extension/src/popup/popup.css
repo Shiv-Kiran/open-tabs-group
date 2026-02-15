@@ -1,0 +1,83 @@
+:root {
+  color-scheme: light;
+  --bg: #f7efe3;
+  --panel: #fff6eb;
+  --text: #3b3028;
+  --muted: #7b6a5b;
+  --primary: #e97a3d;
+  --primary-strong: #ca5e22;
+  --border: #ead5c1;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 340px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", "SF Pro Text", Arial, sans-serif;
+}
+
+.popup {
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+p {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+}
+
+#organizeBtn {
+  border: 0;
+  border-radius: 10px;
+  background: var(--primary);
+  color: #fff;
+  padding: 10px 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#organizeBtn:hover {
+  background: var(--primary-strong);
+}
+
+#organizeBtn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.status {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.summary {
+  font-size: 13px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+
+.link-btn {
+  justify-self: start;
+  border: none;
+  background: transparent;
+  color: var(--primary-strong);
+  text-decoration: underline;
+  padding: 0;
+  cursor: pointer;
+}
