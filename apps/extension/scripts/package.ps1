@@ -3,7 +3,7 @@ $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $distPath = Join-Path $projectRoot "dist"
 $releasePath = Join-Path $projectRoot "release"
-$zipName = "mindweave-v0.1.0.zip"
+$zipName = "mindweave-v0.1.1.zip"
 $zipPath = Join-Path $releasePath $zipName
 
 if (-not (Test-Path $distPath)) {
