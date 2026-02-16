@@ -1,4 +1,9 @@
 import { applyTabGroups } from "../lib/group-applier.js";
+import {
+  archiveAndCloseTabs,
+  getArchiveById,
+  pruneArchives
+} from "../lib/archive-db.js";
 import { buildPreviewFromTabs } from "../lib/grouping-engine.js";
 import { MESSAGE_TYPES } from "../lib/messages.js";
 import {
@@ -16,12 +21,24 @@ import {
 } from "../lib/storage.js";
 import { collectTabs } from "../lib/tab-collector.js";
 
+const UNDO_WINDOW_MS = 10_000;
+const ARCHIVE_RETENTION = 1000;
+let lastUndoToken = null;
+
 function createId(prefix) {
   const random =
     typeof crypto?.randomUUID === "function"
       ? crypto.randomUUID()
       : `${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
   return `${prefix}_${random}`;
+}
+
+function createUndoToken(archiveId) {
+  return {
+    tokenId: createId("undo"),
+    archiveId,
+    expiresAt: Date.now() + UNDO_WINDOW_MS
+  };
 }
 
 function summarizePreview(previewDraft) {
@@ -365,6 +382,105 @@ async function handleCloseTab(tabId) {
   }
 }
 
+function sanitizeArchiveTabs(rawTabs) {
+  if (!Array.isArray(rawTabs)) {
+    return [];
+  }
+  return rawTabs
+    .map((tab) => ({
+      chromeTabId: Number.isInteger(tab?.chromeTabId) ? tab.chromeTabId : undefined,
+      title: typeof tab?.title === "string" ? tab.title : "Untitled Tab",
+      url: typeof tab?.url === "string" ? tab.url : undefined,
+      domain: typeof tab?.domain === "string" ? tab.domain : "unknown",
+      windowId: Number.isInteger(tab?.windowId) ? tab.windowId : -1,
+      tabIndex: Number.isInteger(tab?.tabIndex) ? tab.tabIndex : 0
+    }))
+    .filter((tab) => Number.isInteger(tab.chromeTabId) || tab.url);
+}
+
+async function handleArchiveAndCloseTabs(message) {
+  const tabs = sanitizeArchiveTabs(message?.tabs);
+  if (tabs.length === 0) {
+    return { ok: false, error: "NO_TABS_TO_ARCHIVE" };
+  }
+
+  const result = await archiveAndCloseTabs({
+    reason: typeof message?.reason === "string" ? message.reason : "preview-action",
+    tabs,
+    draftId: typeof message?.draftId === "string" ? message.draftId : undefined,
+    groupName:
+      typeof message?.groupName === "string" ? message.groupName : undefined
+  });
+  await pruneArchives(ARCHIVE_RETENTION).catch(() => undefined);
+
+  const undoToken = createUndoToken(result.archiveId);
+  lastUndoToken = undoToken;
+
+  return {
+    ok: true,
+    ...result,
+    undoToken
+  };
+}
+
+async function handleUndoCloseBatch(tokenId) {
+  if (!lastUndoToken) {
+    return { ok: false, error: "NO_UNDO_TOKEN" };
+  }
+  if (tokenId && tokenId !== lastUndoToken.tokenId) {
+    return { ok: false, error: "UNDO_TOKEN_MISMATCH" };
+  }
+  if (Date.now() > lastUndoToken.expiresAt) {
+    lastUndoToken = null;
+    return { ok: false, error: "UNDO_TOKEN_EXPIRED" };
+  }
+
+  const archive = await getArchiveById(lastUndoToken.archiveId);
+  if (!archive) {
+    lastUndoToken = null;
+    return { ok: false, error: "ARCHIVE_NOT_FOUND" };
+  }
+
+  let restoredTabs = 0;
+  for (const tab of archive.tabs ?? []) {
+    if (typeof tab?.url !== "string" || tab.url.length === 0) {
+      continue;
+    }
+    const baseCreate = {
+      url: tab.url,
+      active: false
+    };
+
+    try {
+      if (Number.isInteger(tab.windowId) && tab.windowId >= 0) {
+        await chrome.tabs.create({
+          ...baseCreate,
+          windowId: tab.windowId,
+          index: Number.isInteger(tab.tabIndex) ? Math.max(tab.tabIndex, 0) : undefined
+        });
+      } else {
+        await chrome.tabs.create(baseCreate);
+      }
+      restoredTabs += 1;
+    } catch {
+      try {
+        await chrome.tabs.create(baseCreate);
+        restoredTabs += 1;
+      } catch {
+        // skip unrecoverable tab restore errors
+      }
+    }
+  }
+
+  const skippedTabs = (archive.tabs ?? []).length - restoredTabs;
+  lastUndoToken = null;
+  return {
+    ok: true,
+    restoredTabs,
+    skippedTabs
+  };
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   (async () => {
     switch (message?.type) {
@@ -384,6 +500,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         return handleRevertRun(message?.snapshotId);
       case MESSAGE_TYPES.CLOSE_TAB:
         return handleCloseTab(message?.tabId);
+      case MESSAGE_TYPES.ARCHIVE_AND_CLOSE_TABS:
+        return handleArchiveAndCloseTabs(message);
+      case MESSAGE_TYPES.UNDO_CLOSE_BATCH:
+        return handleUndoCloseBatch(message?.tokenId);
       case MESSAGE_TYPES.GET_LAST_RUN:
         return {
           ok: true,

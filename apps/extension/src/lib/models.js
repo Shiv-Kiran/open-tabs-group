@@ -96,4 +96,31 @@
  * @property {number} groupsCreated
  */
 
+/**
+ * @typedef {Object} ArchiveTab
+ * @property {number=} chromeTabId
+ * @property {string} title
+ * @property {string=} url
+ * @property {string} domain
+ * @property {number} windowId
+ * @property {number} tabIndex
+ */
+
+/**
+ * @typedef {Object} ArchiveEntry
+ * @property {string} archiveId
+ * @property {number} createdAt
+ * @property {string} reason
+ * @property {ArchiveTab[]} tabs
+ * @property {string=} draftId
+ * @property {string=} groupName
+ */
+
+/**
+ * @typedef {Object} CloseBatchUndoToken
+ * @property {string} tokenId
+ * @property {string} archiveId
+ * @property {number} expiresAt
+ */
+
 export const typeHints = {};

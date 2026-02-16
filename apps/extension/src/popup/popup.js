@@ -11,6 +11,9 @@ const revertSelect = document.getElementById("revertSelect");
 
 const statusText = document.getElementById("statusText");
 const hintText = document.getElementById("hintText");
+const undoToast = document.getElementById("undoToast");
+const undoText = document.getElementById("undoText");
+const undoBtn = document.getElementById("undoBtn");
 const summaryText = document.getElementById("summaryText");
 
 const previewSection = document.getElementById("previewSection");
@@ -23,6 +26,8 @@ let previewState = null;
 const collapsedGroupIds = new Set();
 let includeScrapedContextSetting = true;
 let activeDropzone = null;
+let activeUndoToken = null;
+let undoHideTimer = null;
 
 function setStatus(message, tone = "neutral") {
   statusText.textContent = message;
@@ -37,6 +42,36 @@ function setHint(message = "") {
   }
   hintText.hidden = false;
   hintText.textContent = message;
+}
+
+function clearUndoToast() {
+  activeUndoToken = null;
+  undoToast.hidden = true;
+  undoText.textContent = "";
+  if (undoHideTimer) {
+    clearTimeout(undoHideTimer);
+    undoHideTimer = null;
+  }
+  undoBtn.disabled = true;
+}
+
+function showUndoToast(undoToken, message) {
+  if (!undoToken?.tokenId) {
+    clearUndoToast();
+    return;
+  }
+  activeUndoToken = undoToken;
+  undoToast.hidden = false;
+  undoText.textContent = message || "Tabs closed.";
+  undoBtn.disabled = false;
+
+  if (undoHideTimer) {
+    clearTimeout(undoHideTimer);
+  }
+  const delay = Math.max(0, (undoToken.expiresAt ?? Date.now()) - Date.now());
+  undoHideTimer = setTimeout(() => {
+    clearUndoToast();
+  }, delay);
 }
 
 function setSummary(summary) {
@@ -66,6 +101,41 @@ function sendMessage(message) {
   });
 }
 
+function toArchiveTab(tab) {
+  return {
+    chromeTabId: tab.chromeTabId,
+    title: tab.title,
+    url: tab.url,
+    domain: tab.domain,
+    windowId: tab.windowId,
+    tabIndex: tab.tabIndex
+  };
+}
+
+async function archiveAndClose(tabs, reason, groupName = "") {
+  const response = await sendMessage({
+    type: MESSAGE_TYPES.ARCHIVE_AND_CLOSE_TABS,
+    reason,
+    draftId: previewState?.draftId,
+    groupName,
+    tabs: tabs.map((tab) => toArchiveTab(tab))
+  });
+
+  if (!response?.ok) {
+    throw new Error(response?.error ?? "ARCHIVE_CLOSE_FAILED");
+  }
+
+  if (response.undoToken) {
+    const title =
+      tabs.length === 1
+        ? "1 tab closed."
+        : `${response.closedCount ?? tabs.length} tabs closed.`;
+    showUndoToast(response.undoToken, title);
+  }
+
+  return response;
+}
+
 function setBusyState(isBusy) {
   organizeBtn.disabled = isBusy;
   applyPreviewBtn.disabled = isBusy;
@@ -73,6 +143,7 @@ function setBusyState(isBusy) {
   cancelPreviewBtn.disabled = isBusy;
   clearGroupsBtn.disabled = isBusy;
   revertBtn.disabled = isBusy;
+  undoBtn.disabled = isBusy || !activeUndoToken;
 }
 
 function clearDropzoneHighlight() {
@@ -226,21 +297,6 @@ function moveTabInState(state, tabIndex, targetGroupId) {
   if (!targetGroup.tabIndices.includes(tabIndex)) {
     targetGroup.tabIndices.push(tabIndex);
   }
-  return nextState;
-}
-
-function deleteGroupFromState(state, groupId) {
-  const nextState = copyPreviewState(state);
-  const group = nextState.groups.find((value) => value.id === groupId);
-  if (!group) {
-    return nextState;
-  }
-  for (const tabIndex of group.tabIndices) {
-    if (!nextState.excludedTabIndices.includes(tabIndex)) {
-      nextState.excludedTabIndices.push(tabIndex);
-    }
-  }
-  nextState.groups = nextState.groups.filter((value) => value.id !== groupId);
   return nextState;
 }
 
@@ -420,11 +476,6 @@ function moveTabToGroup(tabIndex, targetGroupId) {
   applyPreviewMutation((state) => moveTabInState(state, tabIndex, targetGroupId));
 }
 
-function deleteGroup(groupId) {
-  applyPreviewMutation((state) => deleteGroupFromState(state, groupId));
-  collapsedGroupIds.delete(groupId);
-}
-
 function clearAllGroups() {
   applyPreviewMutation((state) => clearGroupsFromState(state));
   collapsedGroupIds.clear();
@@ -600,19 +651,68 @@ async function revertSelected() {
   }
 }
 
-async function closeTabAndRefresh(tabIndex) {
-  const tab = previewState?.tabs?.[tabIndex];
-  if (!tab || !Number.isInteger(tab.chromeTabId)) {
+async function undoLastClose() {
+  if (!activeUndoToken?.tokenId) {
+    setStatus("Nothing to undo.", "warning");
     return;
   }
-  const closeResponse = await sendMessage({
-    type: MESSAGE_TYPES.CLOSE_TAB,
-    tabId: tab.chromeTabId
-  });
-  if (!closeResponse?.ok) {
-    throw new Error(closeResponse?.error ?? "TAB_CLOSE_FAILED");
+
+  setBusyState(true);
+  setStatus("Restoring tabs...", "loading");
+  try {
+    const response = await sendMessage({
+      type: MESSAGE_TYPES.UNDO_CLOSE_BATCH,
+      tokenId: activeUndoToken.tokenId
+    });
+    if (!response?.ok) {
+      clearUndoToast();
+      setStatus(`Undo failed: ${response?.error ?? "Unknown error"}`, "error");
+      return;
+    }
+
+    clearUndoToast();
+    setStatus(`Undo complete (${response.restoredTabs ?? 0} restored).`, "success");
+    await generatePreview();
+  } finally {
+    setBusyState(false);
   }
-  await generatePreview();
+}
+
+async function closeTabAndRefresh(tabIndex) {
+  const tab = previewState?.tabs?.[tabIndex];
+  if (!tab) {
+    return;
+  }
+  setBusyState(true);
+  try {
+    await archiveAndClose([tab], "tab-close");
+    setStatus("Tab closed.", "success");
+    await generatePreview();
+  } finally {
+    setBusyState(false);
+  }
+}
+
+async function deleteGroupAndRefresh(groupId) {
+  const group = previewState?.groups?.find((value) => value.id === groupId);
+  if (!group) {
+    return;
+  }
+  const tabs = group.tabIndices
+    .map((tabIndex) => previewState.tabs[tabIndex])
+    .filter(Boolean);
+  if (tabs.length === 0) {
+    return;
+  }
+
+  setBusyState(true);
+  try {
+    await archiveAndClose(tabs, "group-delete", group.name);
+    setStatus(`Group closed: ${group.name}`, "success");
+    await generatePreview();
+  } finally {
+    setBusyState(false);
+  }
 }
 
 previewGroups.addEventListener("input", (event) => {
@@ -678,7 +778,13 @@ function handlePreviewClick(event) {
   }
 
   if (action === "delete-group") {
-    deleteGroup(actionNode.dataset.groupId);
+    const groupId = actionNode.dataset.groupId;
+    if (!groupId) {
+      return;
+    }
+    void deleteGroupAndRefresh(groupId).catch((error) => {
+      setStatus(`Delete failed: ${error.message}`, "error");
+    });
     return;
   }
 
@@ -823,6 +929,13 @@ clearGroupsBtn.addEventListener("click", () => {
 revertBtn.addEventListener("click", () => {
   void revertSelected().catch((error) => {
     setStatus(`Revert failed: ${error.message}`, "error");
+    setBusyState(false);
+  });
+});
+
+undoBtn.addEventListener("click", () => {
+  void undoLastClose().catch((error) => {
+    setStatus(`Undo failed: ${error.message}`, "error");
     setBusyState(false);
   });
 });

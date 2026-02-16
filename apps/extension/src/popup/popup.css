@@ -102,6 +102,28 @@ button {
   border-radius: 8px;
 }
 
+.undo-toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: #fff4e7;
+  border: 1px solid #e9c5ab;
+  font-size: 12px;
+}
+
+.undo-toast button {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff8ef;
+  color: var(--text);
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
 .preview,
 .revert {
   background: var(--panel);
