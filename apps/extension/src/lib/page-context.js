@@ -1,4 +1,4 @@
-const MAX_ENRICHED_TABS = 25;
+const MAX_ENRICHED_TABS = 35;
 
 const GENERIC_NAME_PATTERN = /\b(group|tabs|misc|other|stuff|random)\b/i;
 
@@ -22,6 +22,21 @@ function dominantDomainRatio(indices, tabs) {
   return indices.length > 0 ? max / indices.length : 0;
 }
 
+function semanticSpread(indices, tabs) {
+  const tokenSet = new Set();
+  for (const index of indices) {
+    const title = tabs[index]?.title ?? "";
+    title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((token) => token.length >= 4)
+      .slice(0, 8)
+      .forEach((token) => tokenSet.add(token));
+  }
+  return indices.length > 0 ? tokenSet.size / indices.length : 0;
+}
+
 function detectAmbiguousTabIndices(tabs, groups) {
   const ambiguous = new Set();
 
@@ -31,13 +46,15 @@ function detectAmbiguousTabIndices(tabs, groups) {
       continue;
     }
 
-    const tooLarge = indices.length > 12;
-    const domainHeavy = dominantDomainRatio(indices, tabs) >= 0.7;
+    const tooLarge = indices.length > 9;
+    const domainHeavy =
+      indices.length >= 5 && dominantDomainRatio(indices, tabs) >= 0.6;
     const lowConfidence =
-      typeof group.confidence === "number" && group.confidence < 0.65;
+      typeof group.confidence === "number" && group.confidence < 0.72;
     const genericName = isGenericGroupName(group.name);
+    const weakSpread = semanticSpread(indices, tabs) < 2;
 
-    if (tooLarge || domainHeavy || lowConfidence || genericName) {
+    if (tooLarge || domainHeavy || lowConfidence || genericName || weakSpread) {
       for (const index of indices) {
         ambiguous.add(index);
       }
@@ -49,6 +66,11 @@ function detectAmbiguousTabIndices(tabs, groups) {
 
 function buildSiteHints(tab) {
   const hints = new Set();
+  for (const token of Array.isArray(tab.urlPathHints) ? tab.urlPathHints : []) {
+    if (typeof token === "string" && token.length >= 4) {
+      hints.add(token.toLowerCase());
+    }
+  }
   if (typeof tab.title === "string") {
     tab.title
       .toLowerCase()

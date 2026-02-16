@@ -19,8 +19,9 @@
  * @property {number} chromeTabId
   * @property {number} windowId
  * @property {number} tabIndex
-  * @property {string} title
+ * @property {string} title
   * @property {string} domain
+ * @property {string[]=} urlPathHints
   * @property {string=} url
   * @property {boolean} pinned
  * @property {number|null=} groupId

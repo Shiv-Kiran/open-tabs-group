@@ -1,12 +1,52 @@
+function tokenizeForHints(text, limit = 6) {
+  if (typeof text !== "string") {
+    return [];
+  }
+  return [...new Set(
+    text
+      .toLowerCase()
+      .replace(/[^a-z0-9\s/-]/g, " ")
+      .split(/\s+/)
+      .filter((token) => token.length >= 3)
+  )].slice(0, limit);
+}
+
+function pathHintsFromUrl(url, limit = 6) {
+  if (typeof url !== "string") {
+    return [];
+  }
+  try {
+    const parsed = new URL(url);
+    const pathTokens = parsed.pathname
+      .split("/")
+      .map((part) => part.trim().toLowerCase())
+      .filter((part) => part.length >= 3);
+    const queryTokens = [...parsed.searchParams.keys()]
+      .map((key) => key.trim().toLowerCase())
+      .filter((key) => key.length >= 3);
+    return [...new Set([...pathTokens, ...queryTokens])].slice(0, limit);
+  } catch {
+    return [];
+  }
+}
+
 function buildTabsPayload(tabs, includeFullUrl) {
   return tabs
     .map((tab, index) => {
+      const titleHints = tokenizeForHints(tab.title, 8);
+      const urlHints = [
+        ...(Array.isArray(tab.urlPathHints) ? tab.urlPathHints : []),
+        ...pathHintsFromUrl(tab.url, 8)
+      ].slice(0, 8);
       const pieces = [
         `id:${index}`,
         `window:${tab.windowId}`,
         `position:${tab.tabIndex}`,
+        `pinned:${tab.pinned ? "yes" : "no"}`,
         `title:${tab.title}`,
-        `domain:${tab.domain}`
+        `domain:${tab.domain}`,
+        `titleHints:${titleHints.join(",") || "-"}`,
+        `urlHints:${urlHints.join(",") || "-"}`
       ];
       if (includeFullUrl && tab.url) {
         pieces.push(`url:${tab.url}`);
@@ -181,11 +221,11 @@ async function requestModelGroups({
       {
         role: "system",
         content:
-          "You are a browser tab organizer. Return JSON only with shape {\"groups\":[{\"name\":\"...\",\"tabIndices\":[0,1],\"confidence\":0.0,\"rationale\":\"...\"}]}. Group by user intent/topic. Do not group primarily by domain. Same-domain tabs can belong to different topics. Use tab adjacency as a weak signal only."
+          "You are a browser tab organizer. Return strict JSON only with shape {\"groups\":[{\"name\":\"...\",\"tabIndices\":[0,1],\"confidence\":0.0,\"rationale\":\"...\"}]}. Group by intent/task, never by website domain alone. If one domain contains multiple intents, split it into multiple groups. Keep groups coherent and specific, allow single-tab groups when uncertain, and avoid one giant catch-all group."
       },
       {
         role: "user",
-        content: `Group these tabs by topic and intent.\nRules:\n- Avoid giant single-domain buckets.\n- Keep unrelated tasks separate.\n- Keep group names specific and short.\nTabs:\n${buildTabsPayload(
+        content: `Group these tabs by topic and intent.\nRules:\n- Prioritize semantic intent over domain.\n- Same-domain tabs can be different groups if titles/path context differ.\n- Use window + position as weak context only.\n- Prefer 2-10 tabs per group when possible, but keep singletons if low confidence.\n- Keep names short and concrete.\nTabs:\n${buildTabsPayload(
           tabs,
           includeFullUrl
         )}`

@@ -35,6 +35,25 @@ function normalizeTitle(title) {
   return title.trim().slice(0, 180);
 }
 
+function urlPathHints(url) {
+  if (!url || typeof url !== "string") {
+    return [];
+  }
+  try {
+    const parsed = new URL(url);
+    const pathParts = parsed.pathname
+      .split("/")
+      .map((part) => part.trim().toLowerCase())
+      .filter((part) => part.length >= 3);
+    const queryKeys = [...parsed.searchParams.keys()]
+      .map((key) => key.trim().toLowerCase())
+      .filter((key) => key.length >= 3);
+    return [...new Set([...pathParts, ...queryKeys])].slice(0, 8);
+  } catch {
+    return [];
+  }
+}
+
 function toOrganizeTab(tab, includeFullUrl) {
   const normalized = {
     chromeTabId: tab.id,
@@ -42,6 +61,7 @@ function toOrganizeTab(tab, includeFullUrl) {
     tabIndex: Number.isInteger(tab.index) ? tab.index : 0,
     title: normalizeTitle(tab.title),
     domain: domainFromUrl(tab.url),
+    urlPathHints: urlPathHints(tab.url),
     pinned: Boolean(tab.pinned),
     groupId: Number.isInteger(tab.groupId) && tab.groupId >= 0 ? tab.groupId : null
   };

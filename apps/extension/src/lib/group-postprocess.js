@@ -39,7 +39,8 @@ function setFromTab(tab) {
     ...tokenize(tab.pageContext?.description ?? ""),
     ...tokenize(tab.pageContext?.snippet ?? ""),
     ...tokenize((tab.pageContext?.headings ?? []).join(" ")),
-    ...(tab.pageContext?.siteHints ?? [])
+    ...(tab.pageContext?.siteHints ?? []),
+    ...(tab.urlPathHints ?? [])
   ]);
   return tokens;
 }
@@ -75,19 +76,59 @@ function averageGroupSimilarity(indices, tabs) {
   return pairs > 0 ? score / pairs : 0;
 }
 
+function dominantDomainRatio(indices, tabs) {
+  if (indices.length === 0) {
+    return 0;
+  }
+  const counts = new Map();
+  for (const index of indices) {
+    const domain = tabs[index]?.domain ?? "unknown";
+    counts.set(domain, (counts.get(domain) ?? 0) + 1);
+  }
+  let max = 0;
+  for (const count of counts.values()) {
+    max = Math.max(max, count);
+  }
+  return max / indices.length;
+}
+
+function groupTokenFrequency(indices, tabs) {
+  const frequency = new Map();
+  for (const index of indices) {
+    for (const token of setFromTab(tabs[index])) {
+      frequency.set(token, (frequency.get(token) ?? 0) + 1);
+    }
+  }
+  return frequency;
+}
+
 function groupByDominantToken(indices, tabs) {
   const buckets = new Map();
+  const frequency = groupTokenFrequency(indices, tabs);
+  const candidateTokens = [...frequency.entries()]
+    .filter(([, count]) => count >= 2)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([token]) => token);
+
   for (const index of indices) {
     const tab = tabs[index];
     if (!tab) {
       continue;
     }
-    const tokenCounts = new Map();
-    for (const token of setFromTab(tab)) {
-      tokenCounts.set(token, (tokenCounts.get(token) ?? 0) + 1);
+    const tabTokens = setFromTab(tab);
+    let bestToken = "";
+    let bestScore = 0;
+    for (const token of candidateTokens) {
+      if (!tabTokens.has(token)) {
+        continue;
+      }
+      const score = frequency.get(token) ?? 0;
+      if (score > bestScore) {
+        bestScore = score;
+        bestToken = token;
+      }
     }
-    const [bestToken] =
-      [...tokenCounts.entries()].sort((a, b) => b[1] - a[1])[0] ?? [];
     const key = bestToken || tab.domain || "misc";
     const bucket = buckets.get(key) ?? [];
     bucket.push(index);
@@ -157,9 +198,14 @@ function splitOversizedOrWeakGroups(groups, tabs) {
   const nextGroups = [];
   for (const group of groups) {
     const similarityScore = averageGroupSimilarity(group.tabIndices, tabs);
-    const tooLarge = group.tabIndices.length > 12;
-    const lowCohesion = similarityScore < 0.12 && group.tabIndices.length >= 4;
-    if (!tooLarge && !lowCohesion) {
+    const domainHeavy =
+      group.tabIndices.length >= 5 &&
+      dominantDomainRatio(group.tabIndices, tabs) >= 0.65;
+    const tooLarge = group.tabIndices.length > 9;
+    const lowCohesion = similarityScore < 0.16 && group.tabIndices.length >= 3;
+    const lowConfidence =
+      typeof group.confidence === "number" && group.confidence < 0.62;
+    if (!tooLarge && !lowCohesion && !domainHeavy && !lowConfidence) {
       nextGroups.push(group);
       continue;
     }
@@ -205,7 +251,7 @@ function mergeTinyGroups(groups, tabs) {
         bestTarget = target;
       }
     }
-    if (bestTarget && bestScore >= 0.3) {
+    if (bestTarget && bestScore >= 0.22) {
       bestTarget.tabIndices.push(...candidate.tabIndices);
     } else {
       stable.push(candidate);
