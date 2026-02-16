@@ -53,6 +53,15 @@
  * @property {boolean} usedFallback
  * @property {boolean} enrichedContextUsed
  * @property {string=} hint
+ * @property {AiRunMeta=} aiMeta
+ */
+
+/**
+ * @typedef {Object} AiRunMeta
+ * @property {string} primaryModel
+ * @property {string} fallbackModel
+ * @property {boolean} usedFallbackModel
+ * @property {string=} aiErrorCode
  */
 
 /**

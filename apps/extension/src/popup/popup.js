@@ -151,7 +151,16 @@ function normalizePreview(preview) {
     excludedTabIndices: [...excluded],
     usedFallback: Boolean(preview.usedFallback),
     enrichedContextUsed: Boolean(preview.enrichedContextUsed),
-    hint: preview.hint || ""
+    hint: preview.hint || "",
+    aiMeta:
+      preview.aiMeta && typeof preview.aiMeta === "object"
+        ? {
+            primaryModel: preview.aiMeta.primaryModel || "",
+            fallbackModel: preview.aiMeta.fallbackModel || "",
+            usedFallbackModel: Boolean(preview.aiMeta.usedFallbackModel),
+            aiErrorCode: preview.aiMeta.aiErrorCode || ""
+          }
+        : null
   };
 }
 
@@ -352,8 +361,19 @@ function getApplyPayload() {
     excludedTabIndices: previewState.excludedTabIndices,
     usedFallback: previewState.usedFallback,
     enrichedContextUsed: previewState.enrichedContextUsed,
-    hint: previewState.hint
+    hint: previewState.hint,
+    aiMeta: previewState.aiMeta
   };
+}
+
+function buildModelFallbackHint(preview) {
+  if (!preview?.aiMeta?.usedFallbackModel) {
+    return "";
+  }
+  const errorCode = preview.aiMeta.aiErrorCode || "UNKNOWN";
+  const primaryModel = preview.aiMeta.primaryModel || "primary model";
+  const fallbackModel = preview.aiMeta.fallbackModel || "fallback model";
+  return `${primaryModel} failed (${errorCode}). Used ${fallbackModel}.`;
 }
 
 async function refreshRevertHistory() {
@@ -414,11 +434,18 @@ async function generatePreview() {
     setSummary(response.summary);
     if (previewState?.usedFallback) {
       setStatus("Preview ready (fallback mode).", "warning");
+    } else if (previewState?.aiMeta?.usedFallbackModel) {
+      setStatus("Preview ready (model fallback).", "warning");
     } else {
       setStatus("Preview ready. Edit and apply.", "success");
     }
-    if (previewState?.hint) {
+    const modelHint = buildModelFallbackHint(previewState);
+    if (previewState?.hint && modelHint) {
+      setHint(`${previewState.hint} ${modelHint}`);
+    } else if (previewState?.hint) {
       setHint(previewState.hint);
+    } else if (modelHint) {
+      setHint(modelHint);
     }
   } finally {
     setBusyState(false);

@@ -32,6 +32,23 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function extractErrorCode(error) {
+  if (typeof error?.message === "string" && error.message.trim().length > 0) {
+    return error.message.trim();
+  }
+  return "AI_REQUEST_FAILED";
+}
+
+function isTransientErrorCode(code) {
+  return (
+    code === "AI_TIMEOUT" ||
+    code === "AI_NETWORK_ERROR" ||
+    code === "AI_HTTP_408" ||
+    code === "AI_HTTP_429" ||
+    /^AI_HTTP_5\d{2}$/.test(code)
+  );
+}
+
 async function requestOpenAI(payload, openaiApiKey, timeoutMs) {
   const controller = new AbortController();
   const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
@@ -55,6 +72,9 @@ async function requestOpenAI(payload, openaiApiKey, timeoutMs) {
   } catch (error) {
     if (error?.name === "AbortError") {
       throw new Error("AI_TIMEOUT");
+    }
+    if (error instanceof TypeError) {
+      throw new Error("AI_NETWORK_ERROR");
     }
     throw error;
   } finally {
@@ -145,17 +165,16 @@ function parseResponsePayload(data, tabCount) {
   return groups;
 }
 
-/**
- * @param {import("./models").OrganizeRequestTab[]} tabs
- * @param {{ openaiApiKey: string, model: string, includeFullUrl: boolean }} settings
- * @returns {Promise<import("./models").GroupSuggestion[]>}
- */
-export async function groupTabsWithAI(tabs, settings) {
-  const timeoutMs = 20_000;
-  const maxRetries = 1;
-
+async function requestModelGroups({
+  model,
+  tabs,
+  includeFullUrl,
+  openaiApiKey,
+  timeoutMs,
+  maxRetries
+}) {
   const payload = {
-    model: settings.model,
+    model,
     temperature: 0.2,
     response_format: { type: "json_object" },
     messages: [
@@ -168,25 +187,25 @@ export async function groupTabsWithAI(tabs, settings) {
         role: "user",
         content: `Group these tabs by topic and intent.\nRules:\n- Avoid giant single-domain buckets.\n- Keep unrelated tasks separate.\n- Keep group names specific and short.\nTabs:\n${buildTabsPayload(
           tabs,
-          settings.includeFullUrl
+          includeFullUrl
         )}`
       }
     ]
   };
 
   let attempt = 0;
-  let lastError = null;
+  let lastErrorCode = "AI_REQUEST_FAILED";
+
   while (attempt <= maxRetries) {
     try {
-      const data = await requestOpenAI(
-        payload,
-        settings.openaiApiKey,
-        timeoutMs
-      );
+      const data = await requestOpenAI(payload, openaiApiKey, timeoutMs);
       return parseResponsePayload(data, tabs.length);
     } catch (error) {
-      lastError = error;
-      if (attempt >= maxRetries) {
+      const errorCode = extractErrorCode(error);
+      lastErrorCode = errorCode;
+      const retryAllowed =
+        attempt < maxRetries && isTransientErrorCode(errorCode);
+      if (!retryAllowed) {
         break;
       }
       await sleep((attempt + 1) * 500);
@@ -194,5 +213,71 @@ export async function groupTabsWithAI(tabs, settings) {
     }
   }
 
-  throw lastError ?? new Error("AI_REQUEST_FAILED");
+  throw new Error(lastErrorCode);
+}
+
+/**
+ * @param {import("./models").OrganizeRequestTab[]} tabs
+ * @param {{ openaiApiKey: string, model: string, fallbackModel: string, includeFullUrl: boolean }} settings
+ * @returns {Promise<{ groups: import("./models").GroupSuggestion[], meta: import("./models").AiRunMeta }>}
+ */
+export async function groupTabsWithAI(tabs, settings) {
+  const timeoutMs = 20_000;
+  const maxRetries = 1;
+  const primaryModel = (settings.model || "gpt-4.1").trim();
+  const fallbackModel = (settings.fallbackModel || "gpt-4o-mini").trim();
+
+  try {
+    const groups = await requestModelGroups({
+      model: primaryModel,
+      tabs,
+      includeFullUrl: settings.includeFullUrl,
+      openaiApiKey: settings.openaiApiKey,
+      timeoutMs,
+      maxRetries
+    });
+
+    return {
+      groups,
+      meta: {
+        primaryModel,
+        fallbackModel,
+        usedFallbackModel: false
+      }
+    };
+  } catch (primaryError) {
+    const primaryErrorCode = extractErrorCode(primaryError);
+    if (!fallbackModel || fallbackModel === primaryModel) {
+      const error = new Error(primaryErrorCode);
+      error.primaryErrorCode = primaryErrorCode;
+      throw error;
+    }
+
+    try {
+      const groups = await requestModelGroups({
+        model: fallbackModel,
+        tabs,
+        includeFullUrl: settings.includeFullUrl,
+        openaiApiKey: settings.openaiApiKey,
+        timeoutMs,
+        maxRetries
+      });
+
+      return {
+        groups,
+        meta: {
+          primaryModel,
+          fallbackModel,
+          usedFallbackModel: true,
+          aiErrorCode: primaryErrorCode
+        }
+      };
+    } catch (fallbackError) {
+      const fallbackErrorCode = extractErrorCode(fallbackError);
+      const error = new Error(fallbackErrorCode);
+      error.primaryErrorCode = primaryErrorCode;
+      error.fallbackErrorCode = fallbackErrorCode;
+      throw error;
+    }
+  }
 }

@@ -20,7 +20,7 @@ function toPreviewGroups(groups, tabs) {
 /**
  * Builds high-quality preview groups with optional page enrichment.
  * @param {import("./models").OrganizeRequestTab[]} tabs
- * @param {{ openaiApiKey: string, model: string, includeFullUrl: boolean, includeScrapedContext: boolean }} settings
+ * @param {{ openaiApiKey: string, model: string, fallbackModel: string, includeFullUrl: boolean, includeScrapedContext: boolean }} settings
  */
 export async function buildPreviewFromTabs(tabs, settings) {
   let workingTabs = tabs;
@@ -29,9 +29,16 @@ export async function buildPreviewFromTabs(tabs, settings) {
   let enrichedContextUsed = false;
   let hint = "";
   let aiErrorCode = "";
+  let aiMeta = {
+    primaryModel: settings.model,
+    fallbackModel: settings.fallbackModel,
+    usedFallbackModel: false
+  };
 
   try {
-    groups = await groupTabsWithAI(workingTabs, settings);
+    const firstPass = await groupTabsWithAI(workingTabs, settings);
+    groups = firstPass.groups;
+    aiMeta = firstPass.meta;
 
     if (settings.includeScrapedContext) {
       const enrichment = await enrichTabsWithPageContext(workingTabs, groups);
@@ -41,9 +48,15 @@ export async function buildPreviewFromTabs(tabs, settings) {
       if (enrichment.enriched) {
         enrichedContextUsed = true;
         try {
-          groups = await groupTabsWithAI(workingTabs, settings);
+          const secondPass = await groupTabsWithAI(workingTabs, settings);
+          groups = secondPass.groups;
+          aiMeta = secondPass.meta;
         } catch (error) {
           aiErrorCode = error?.message ?? "UNKNOWN_AI_ERROR";
+          aiMeta = {
+            ...aiMeta,
+            aiErrorCode
+          };
           hint =
             hint ||
             `Second-pass AI enrichment failed (${aiErrorCode}). Kept first-pass groups.`;
@@ -54,6 +67,10 @@ export async function buildPreviewFromTabs(tabs, settings) {
     groups = groupTabsHeuristic(workingTabs);
     usedFallback = true;
     aiErrorCode = error?.message ?? "UNKNOWN_AI_ERROR";
+    aiMeta = {
+      ...aiMeta,
+      aiErrorCode
+    };
     if (!hint) {
       hint = `AI request failed (${aiErrorCode}). Used local heuristic grouping.`;
     }
@@ -68,6 +85,7 @@ export async function buildPreviewFromTabs(tabs, settings) {
     usedFallback,
     enrichedContextUsed,
     hint,
-    aiErrorCode
+    aiErrorCode,
+    aiMeta
   };
 }

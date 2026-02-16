@@ -1,11 +1,13 @@
 const SETTINGS_OPENAI_KEY = "settings.openaiApiKey";
 const SETTINGS_MODEL = "settings.model";
+const SETTINGS_FALLBACK_MODEL = "settings.fallbackModel";
 const SETTINGS_INCLUDE_FULL_URL = "settings.includeFullUrl";
 const SETTINGS_INCLUDE_SCRAPED_CONTEXT = "settings.includeScrapedContext";
 const SETTINGS_ORGANIZE_SCOPE = "settings.organizeScope";
 const SETTINGS_ALLOW_CROSS_WINDOW_GROUPING =
   "settings.allowCrossWindowGrouping";
 const LAST_RUN_SUMMARY = "runs.lastSummary";
+const LAST_AI_META = "runs.lastAiMeta";
 const PREVIEW_DRAFT = "runs.previewDraft";
 const REVERT_HISTORY = "runs.revertHistory";
 
@@ -13,7 +15,8 @@ const MAX_REVERT_HISTORY = 3;
 
 export const DEFAULT_SETTINGS = Object.freeze({
   openaiApiKey: "",
-  model: "gpt-4o-mini",
+  model: "gpt-4.1",
+  fallbackModel: "gpt-4o-mini",
   includeFullUrl: true,
   includeScrapedContext: true,
   organizeScope: "all",
@@ -32,6 +35,7 @@ export async function getSettings() {
   const values = await getValues([
     SETTINGS_OPENAI_KEY,
     SETTINGS_MODEL,
+    SETTINGS_FALLBACK_MODEL,
     SETTINGS_INCLUDE_FULL_URL,
     SETTINGS_INCLUDE_SCRAPED_CONTEXT,
     SETTINGS_ORGANIZE_SCOPE,
@@ -41,6 +45,8 @@ export async function getSettings() {
   return {
     openaiApiKey: values[SETTINGS_OPENAI_KEY] ?? DEFAULT_SETTINGS.openaiApiKey,
     model: values[SETTINGS_MODEL] ?? DEFAULT_SETTINGS.model,
+    fallbackModel:
+      values[SETTINGS_FALLBACK_MODEL] ?? DEFAULT_SETTINGS.fallbackModel,
     includeFullUrl:
       values[SETTINGS_INCLUDE_FULL_URL] ?? DEFAULT_SETTINGS.includeFullUrl,
     includeScrapedContext:
@@ -58,6 +64,8 @@ export async function saveSettings(settings) {
   await setValues({
     [SETTINGS_OPENAI_KEY]: settings.openaiApiKey ?? DEFAULT_SETTINGS.openaiApiKey,
     [SETTINGS_MODEL]: settings.model ?? DEFAULT_SETTINGS.model,
+    [SETTINGS_FALLBACK_MODEL]:
+      settings.fallbackModel ?? DEFAULT_SETTINGS.fallbackModel,
     [SETTINGS_INCLUDE_FULL_URL]:
       settings.includeFullUrl ?? DEFAULT_SETTINGS.includeFullUrl,
     [SETTINGS_INCLUDE_SCRAPED_CONTEXT]:
@@ -78,6 +86,17 @@ export async function getLastRunSummary() {
 export async function setLastRunSummary(summary) {
   await setValues({
     [LAST_RUN_SUMMARY]: summary
+  });
+}
+
+export async function getLastAiMeta() {
+  const values = await getValues([LAST_AI_META]);
+  return values[LAST_AI_META] ?? null;
+}
+
+export async function setLastAiMeta(aiMeta) {
+  await setValues({
+    [LAST_AI_META]: aiMeta
   });
 }
 

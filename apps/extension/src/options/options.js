@@ -2,6 +2,7 @@ import { DEFAULT_SETTINGS, getSettings, saveSettings } from "../lib/storage.js";
 
 const apiKeyInput = document.getElementById("apiKey");
 const modelInput = document.getElementById("model");
+const fallbackModelInput = document.getElementById("fallbackModel");
 const includeFullUrlInput = document.getElementById("includeFullUrl");
 const includeScrapedContextInput = document.getElementById(
   "includeScrapedContext"
@@ -21,6 +22,8 @@ async function loadSettings() {
   const settings = await getSettings();
   apiKeyInput.value = settings.openaiApiKey;
   modelInput.value = settings.model || DEFAULT_SETTINGS.model;
+  fallbackModelInput.value =
+    settings.fallbackModel || DEFAULT_SETTINGS.fallbackModel;
   includeFullUrlInput.checked = settings.includeFullUrl;
   includeScrapedContextInput.checked = settings.includeScrapedContext;
   organizeScopeInput.value = settings.organizeScope || DEFAULT_SETTINGS.organizeScope;
@@ -33,6 +36,8 @@ async function handleSave() {
 
   const openaiApiKey = apiKeyInput.value.trim();
   const model = modelInput.value.trim() || DEFAULT_SETTINGS.model;
+  const fallbackModel =
+    fallbackModelInput.value.trim() || DEFAULT_SETTINGS.fallbackModel;
   const includeFullUrl = includeFullUrlInput.checked;
   const includeScrapedContext = includeScrapedContextInput.checked;
   const organizeScope = organizeScopeInput.value || DEFAULT_SETTINGS.organizeScope;
@@ -41,6 +46,7 @@ async function handleSave() {
   await saveSettings({
     openaiApiKey,
     model,
+    fallbackModel,
     includeFullUrl,
     includeScrapedContext,
     organizeScope,

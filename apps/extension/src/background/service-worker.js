@@ -5,10 +5,12 @@ import {
   appendRevertSnapshot,
   clearPreviewDraft,
   findRevertSnapshot,
+  getLastAiMeta,
   getLastRunSummary,
   getPreviewDraft,
   getRevertHistory,
   getSettings,
+  setLastAiMeta,
   setLastRunSummary,
   setPreviewDraft
 } from "../lib/storage.js";
@@ -106,7 +108,19 @@ function sanitizePreviewDraft(draft) {
     excludedTabIndices: [...excludedSet],
     usedFallback: Boolean(draft.usedFallback),
     enrichedContextUsed: Boolean(draft.enrichedContextUsed),
-    hint: typeof draft.hint === "string" ? draft.hint : ""
+    hint: typeof draft.hint === "string" ? draft.hint : "",
+    aiMeta:
+      draft.aiMeta && typeof draft.aiMeta === "object"
+        ? {
+            primaryModel: draft.aiMeta.primaryModel ?? "",
+            fallbackModel: draft.aiMeta.fallbackModel ?? "",
+            usedFallbackModel: Boolean(draft.aiMeta.usedFallbackModel),
+            aiErrorCode:
+              typeof draft.aiMeta.aiErrorCode === "string"
+                ? draft.aiMeta.aiErrorCode
+                : undefined
+          }
+        : undefined
   };
 }
 
@@ -122,6 +136,7 @@ async function handleOrganizePreview() {
   });
   if (tabs.length === 0) {
     await clearPreviewDraft();
+    await setLastAiMeta(null);
     const emptySummary = {
       groupedTabs: 0,
       groupsCreated: 0,
@@ -134,6 +149,7 @@ async function handleOrganizePreview() {
   }
 
   const previewResult = await buildPreviewFromTabs(tabs, settings);
+  await setLastAiMeta(previewResult.aiMeta ?? null);
   const draft = sanitizePreviewDraft({
     draftId: createId("draft"),
     createdAt: Date.now(),
@@ -143,7 +159,8 @@ async function handleOrganizePreview() {
     usedFallback: previewResult.usedFallback,
     enrichedContextUsed: previewResult.enrichedContextUsed,
     hint: previewResult.hint,
-    aiErrorCode: previewResult.aiErrorCode
+    aiErrorCode: previewResult.aiErrorCode,
+    aiMeta: previewResult.aiMeta
   });
 
   await setPreviewDraft(draft);
@@ -368,7 +385,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       case MESSAGE_TYPES.CLOSE_TAB:
         return handleCloseTab(message?.tabId);
       case MESSAGE_TYPES.GET_LAST_RUN:
-        return { ok: true, summary: await getLastRunSummary() };
+        return {
+          ok: true,
+          summary: await getLastRunSummary(),
+          aiMeta: await getLastAiMeta()
+        };
       default:
         return { ok: false, error: "UNSUPPORTED_MESSAGE" };
     }
