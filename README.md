@@ -1,41 +1,40 @@
-# Mindweave v0.1.1
+# Mindweave v0.2.0
 
-Chrome extension for AI-assisted tab grouping with safer preview and revert.
+Chrome extension for AI-assisted tab grouping with preview editing, revert history, and archive-first destructive actions.
 
-## What v0.1.1 Does
-- Generates a **preview** of proposed groups before applying.
-- Applies groups only when you click **Apply Groups**.
-- Lets you edit preview groups before apply:
-  - drag/drop tabs across groups
-  - rename groups
-  - collapse groups
-  - delete individual groups
-  - delete all preview groups
-  - exclude specific tabs from apply
-  - close tabs directly from preview
-- Uses enriched AI context:
-  - title + domain + full URL
-  - optional lightweight page context (description/headings/snippet)
-- Uses fallback local heuristics if AI is unavailable.
-- Stores revert snapshots and supports restoring the last 3 organize runs.
+## What v0.2.0 Ships
+- Preview-first organize flow:
+  - `Generate Preview` -> review/edit -> `Apply Groups`
+- Stronger grouping quality:
+  - richer tab context (title/domain/path hints/page context)
+  - stricter same-domain split behavior
+  - post-processing guardrails
+- Model cascade:
+  - primary model (default `gpt-4.1`)
+  - fallback model (default `gpt-4o-mini`) when primary fails
+- Preview editor improvements:
+  - drag/drop tab movement
+  - `Move to...` fallback control per tab
+  - stable collapse/open behavior
+  - compact controls with corner `x` tab close
+- Safety and recovery:
+  - revert snapshots (last 3 apply runs)
+  - destructive actions archive locally in IndexedDB
+  - 10-second undo for latest close batch
 
-## Current Scope (v0.1.1)
+## Scope
 - In scope:
-  - Preview-first organize flow
-  - Revert menu (last 3 snapshots)
-  - Options page for API key/model/settings/context toggles
-  - AI grouping + targeted enrichment + heuristic fallback
-  - Build + package zip for release draft
+  - AI grouping + local heuristic fallback
+  - preview editing + apply + revert
+  - local archive DB for destructive preview actions
 - Out of scope:
-  - Focus mode
-  - Reminder scheduler/email/monthly reports
-  - Archive memories
-  - Decision fatigue mode
-  - Backend sync
+  - cloud sync/backend
+  - archive browser UI
+  - reminders/focus mode/monthly reports
 
 ## Requirements
 - Node.js 18+
-- Chrome browser (MV3 support)
+- Chrome with MV3 support
 - OpenAI API key
 
 ## Setup
@@ -43,50 +42,49 @@ Chrome extension for AI-assisted tab grouping with safer preview and revert.
    ```bash
    npm install
    ```
-2. Build extension:
+2. Build:
    ```bash
    npm run build
    ```
 3. Load unpacked extension:
-   - Open `chrome://extensions`
-   - Enable `Developer mode`
-   - Click `Load unpacked`
-   - Select `apps/extension/dist`
-4. Open extension options and save:
+   - open `chrome://extensions`
+   - enable `Developer mode`
+   - click `Load unpacked`
+   - select `apps/extension/dist`
+4. Open extension `Settings` and save:
    - `OpenAI API Key`
-   - `Model` (default: `gpt-4o-mini`)
-   - `Include full URL` (recommended ON)
+   - `Model` (default `gpt-4.1`)
+   - `Fallback model` (default `gpt-4o-mini`)
+   - `Include full URL` (optional)
    - `Include lightweight page context` (recommended ON)
    - `Organize scope` (`All windows` or `Current window only`)
    - `Allow moving tabs across windows` (default OFF)
 
-## Usage
-1. Open popup.
-2. Click `Generate Preview`.
-3. Review group cards (name, count, sample tabs, rationale).
-4. Choose:
-   - `Apply Groups`
-   - `Regenerate`
-   - `Cancel`
-5. Optional edits before apply:
-   - Drag tabs between groups or to `Excluded`
-   - Rename group names inline
-   - Delete group or clear all preview groups
-   - Close individual tabs
-5. If needed, use Revert section to restore a previous run.
+## Daily Usage
+1. Click `Generate Preview`.
+2. Adjust groups:
+   - rename groups
+   - drag/drop or `Move to...`
+   - fold/open groups
+3. For destructive edits in preview:
+   - tab corner `x` -> archive + close tab
+   - `Del` on group -> archive + close group tabs
+   - undo toast available for 10 seconds
+4. Click `Apply Groups` to commit grouping.
+5. Use `Revert` section to restore one of the last 3 apply snapshots.
 
 ## Commands
 - Build:
   ```bash
   npm run build
   ```
-- Package zip:
+- Package:
   ```bash
   npm run package
   ```
 
-Packaged artifact is created at:
-- `apps/extension/release/mindweave-v0.1.1.zip`
+Release zip:
+- `apps/extension/release/mindweave-v0.2.0.zip`
 
 ## Project Structure
 ```text
@@ -98,12 +96,12 @@ apps/extension/
   src/lib/*
   scripts/package.ps1
 docs/
-  manual-qa-v0.1.md
+  manual-qa-v0.2.md
 ```
 
 ## Known Limits
-- Revert is best-effort for currently open tabs in snapshot scope.
-- Page context enrichment requires optional site permission grant.
-- No server-side sync/backups in v0.1.1.
-- Manual QA in Chrome is required before store submission.
-- If AI fails (for example invalid key/rate limits/network), preview runs in fallback mode and shows the error code in the hint text.
+- Undo restores from the latest close batch only and expires after 10 seconds.
+- Revert snapshots are best-effort for tabs that are still open.
+- Archive data is local-only (IndexedDB), no cloud backup.
+- Page-context enrichment requires optional site permission.
+- If AI fails fully, local heuristic fallback still runs and returns a preview.
