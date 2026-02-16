@@ -22,6 +22,7 @@ const excludedTabs = document.getElementById("excludedTabs");
 let previewState = null;
 const collapsedGroupIds = new Set();
 let includeScrapedContextSetting = true;
+let activeDropzone = null;
 
 function setStatus(message, tone = "neutral") {
   statusText.textContent = message;
@@ -72,6 +73,20 @@ function setBusyState(isBusy) {
   cancelPreviewBtn.disabled = isBusy;
   clearGroupsBtn.disabled = isBusy;
   revertBtn.disabled = isBusy;
+}
+
+function clearDropzoneHighlight() {
+  if (activeDropzone) {
+    activeDropzone.classList.remove("is-drop-target");
+    activeDropzone = null;
+  }
+}
+
+function findDropzoneFromEvent(event) {
+  if (!(event.target instanceof HTMLElement)) {
+    return null;
+  }
+  return event.target.closest(".dropzone");
 }
 
 async function loadClientSettings() {
@@ -168,6 +183,88 @@ function getTabLabel(tab) {
   return `${tab.title} (${tab.domain})`;
 }
 
+function copyPreviewState(state) {
+  return {
+    ...state,
+    groups: state.groups.map((group) => ({
+      ...group,
+      tabIndices: [...group.tabIndices]
+    })),
+    excludedTabIndices: [...state.excludedTabIndices]
+  };
+}
+
+function removeTabFromState(state, tabIndex) {
+  const nextState = copyPreviewState(state);
+  nextState.groups.forEach((group) => {
+    group.tabIndices = group.tabIndices.filter((value) => value !== tabIndex);
+  });
+  nextState.groups = nextState.groups.filter((group) => group.tabIndices.length > 0);
+  nextState.excludedTabIndices = nextState.excludedTabIndices.filter(
+    (value) => value !== tabIndex
+  );
+  return nextState;
+}
+
+function moveTabInState(state, tabIndex, targetGroupId) {
+  const nextState = removeTabFromState(state, tabIndex);
+  if (targetGroupId === "excluded") {
+    if (!nextState.excludedTabIndices.includes(tabIndex)) {
+      nextState.excludedTabIndices.push(tabIndex);
+    }
+    return nextState;
+  }
+
+  const targetGroup = nextState.groups.find((group) => group.id === targetGroupId);
+  if (!targetGroup) {
+    if (!nextState.excludedTabIndices.includes(tabIndex)) {
+      nextState.excludedTabIndices.push(tabIndex);
+    }
+    return nextState;
+  }
+
+  if (!targetGroup.tabIndices.includes(tabIndex)) {
+    targetGroup.tabIndices.push(tabIndex);
+  }
+  return nextState;
+}
+
+function deleteGroupFromState(state, groupId) {
+  const nextState = copyPreviewState(state);
+  const group = nextState.groups.find((value) => value.id === groupId);
+  if (!group) {
+    return nextState;
+  }
+  for (const tabIndex of group.tabIndices) {
+    if (!nextState.excludedTabIndices.includes(tabIndex)) {
+      nextState.excludedTabIndices.push(tabIndex);
+    }
+  }
+  nextState.groups = nextState.groups.filter((value) => value.id !== groupId);
+  return nextState;
+}
+
+function clearGroupsFromState(state) {
+  const nextState = copyPreviewState(state);
+  for (const group of nextState.groups) {
+    for (const tabIndex of group.tabIndices) {
+      if (!nextState.excludedTabIndices.includes(tabIndex)) {
+        nextState.excludedTabIndices.push(tabIndex);
+      }
+    }
+  }
+  nextState.groups = [];
+  return nextState;
+}
+
+function applyPreviewMutation(mutator) {
+  if (!previewState) {
+    return;
+  }
+  previewState = mutator(previewState);
+  renderPreview();
+}
+
 function createTabItem(tabIndex, sourceGroupId) {
   const tab = previewState.tabs[tabIndex];
   const item = document.createElement("li");
@@ -184,25 +281,39 @@ function createTabItem(tabIndex, sourceGroupId) {
   const actions = document.createElement("div");
   actions.className = "tab-actions";
 
-  const excludeBtn = document.createElement("button");
-  excludeBtn.type = "button";
-  excludeBtn.dataset.action = "exclude-tab";
-  excludeBtn.dataset.tabIndex = String(tabIndex);
-  excludeBtn.textContent = "Exclude";
-  actions.appendChild(excludeBtn);
+  const moveSelect = document.createElement("select");
+  moveSelect.dataset.action = "move-tab";
+  moveSelect.dataset.tabIndex = String(tabIndex);
+
+  const excludedOption = document.createElement("option");
+  excludedOption.value = "excluded";
+  excludedOption.textContent = "Move to: Unassigned";
+  moveSelect.appendChild(excludedOption);
+
+  for (const group of previewState.groups) {
+    const option = document.createElement("option");
+    option.value = group.id;
+    option.textContent = `Move to: ${group.name}`;
+    moveSelect.appendChild(option);
+  }
+  moveSelect.value = sourceGroupId;
+  actions.appendChild(moveSelect);
+  item.appendChild(actions);
 
   const closeBtn = document.createElement("button");
   closeBtn.type = "button";
+  closeBtn.className = "tab-close-btn";
   closeBtn.dataset.action = "close-tab";
   closeBtn.dataset.tabIndex = String(tabIndex);
-  closeBtn.textContent = "Close";
-  actions.appendChild(closeBtn);
+  closeBtn.textContent = "×";
+  closeBtn.title = "Close tab";
+  item.appendChild(closeBtn);
 
-  item.appendChild(actions);
   return item;
 }
 
 function renderPreview() {
+  clearDropzoneHighlight();
   if (!previewState) {
     previewSection.hidden = true;
     previewGroups.innerHTML = "";
@@ -213,6 +324,12 @@ function renderPreview() {
   }
 
   previewSection.hidden = false;
+  const validGroupIds = new Set(previewState.groups.map((group) => group.id));
+  for (const groupId of [...collapsedGroupIds]) {
+    if (!validGroupIds.has(groupId)) {
+      collapsedGroupIds.delete(groupId);
+    }
+  }
   previewGroups.innerHTML = "";
   const groupedCount = previewState.groups.reduce(
     (count, group) => count + group.tabIndices.length,
@@ -220,7 +337,7 @@ function renderPreview() {
   );
   previewMetaText.textContent = `${groupedCount} grouped, ${
     previewState.excludedTabIndices.length
-  } excluded`;
+  } unassigned`;
 
   for (const group of previewState.groups) {
     const groupCard = document.createElement("article");
@@ -249,16 +366,20 @@ function renderPreview() {
 
     const collapseBtn = document.createElement("button");
     collapseBtn.type = "button";
+    collapseBtn.className = "icon-btn";
     collapseBtn.dataset.action = "toggle-collapse";
     collapseBtn.dataset.groupId = group.id;
-    collapseBtn.textContent = isCollapsed ? "Expand" : "Collapse";
+    collapseBtn.textContent = isCollapsed ? "Open" : "Fold";
+    collapseBtn.title = isCollapsed ? "Expand group" : "Collapse group";
     header.appendChild(collapseBtn);
 
     const deleteBtn = document.createElement("button");
     deleteBtn.type = "button";
+    deleteBtn.className = "icon-btn";
     deleteBtn.dataset.action = "delete-group";
     deleteBtn.dataset.groupId = group.id;
-    deleteBtn.textContent = "Delete Group";
+    deleteBtn.textContent = "Del";
+    deleteBtn.title = "Delete group";
     header.appendChild(deleteBtn);
     groupCard.appendChild(header);
 
@@ -295,61 +416,18 @@ function renderPreview() {
   excludedSection.hidden = previewState.excludedTabIndices.length === 0;
 }
 
-function removeTabEverywhere(tabIndex) {
-  previewState.groups.forEach((group) => {
-    group.tabIndices = group.tabIndices.filter((value) => value !== tabIndex);
-  });
-  previewState.groups = previewState.groups.filter((group) => group.tabIndices.length > 0);
-  previewState.excludedTabIndices = previewState.excludedTabIndices.filter(
-    (value) => value !== tabIndex
-  );
-}
-
 function moveTabToGroup(tabIndex, targetGroupId) {
-  if (!previewState) {
-    return;
-  }
-  removeTabEverywhere(tabIndex);
-
-  if (targetGroupId === "excluded") {
-    previewState.excludedTabIndices.push(tabIndex);
-  } else {
-    const targetGroup = previewState.groups.find((group) => group.id === targetGroupId);
-    if (targetGroup) {
-      targetGroup.tabIndices.push(tabIndex);
-    } else {
-      previewState.excludedTabIndices.push(tabIndex);
-    }
-  }
-  renderPreview();
+  applyPreviewMutation((state) => moveTabInState(state, tabIndex, targetGroupId));
 }
 
 function deleteGroup(groupId) {
-  const group = previewState.groups.find((value) => value.id === groupId);
-  if (!group) {
-    return;
-  }
-  for (const tabIndex of group.tabIndices) {
-    if (!previewState.excludedTabIndices.includes(tabIndex)) {
-      previewState.excludedTabIndices.push(tabIndex);
-    }
-  }
-  previewState.groups = previewState.groups.filter((value) => value.id !== groupId);
+  applyPreviewMutation((state) => deleteGroupFromState(state, groupId));
   collapsedGroupIds.delete(groupId);
-  renderPreview();
 }
 
 function clearAllGroups() {
-  for (const group of previewState.groups) {
-    for (const tabIndex of group.tabIndices) {
-      if (!previewState.excludedTabIndices.includes(tabIndex)) {
-        previewState.excludedTabIndices.push(tabIndex);
-      }
-    }
-  }
-  previewState.groups = [];
+  applyPreviewMutation((state) => clearGroupsFromState(state));
   collapsedGroupIds.clear();
-  renderPreview();
 }
 
 function getApplyPayload() {
@@ -553,6 +631,22 @@ previewGroups.addEventListener("input", (event) => {
   group.name = target.value;
 });
 
+function handlePreviewChange(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLSelectElement)) {
+    return;
+  }
+  if (target.dataset.action !== "move-tab") {
+    return;
+  }
+  const tabIndex = Number(target.dataset.tabIndex);
+  if (!Number.isInteger(tabIndex)) {
+    return;
+  }
+  const targetGroupId = target.value || "excluded";
+  moveTabToGroup(tabIndex, targetGroupId);
+}
+
 function handlePreviewClick(event) {
   const target = event.target;
   if (!(target instanceof Element)) {
@@ -588,15 +682,6 @@ function handlePreviewClick(event) {
     return;
   }
 
-  if (action === "exclude-tab") {
-    const tabIndex = Number(actionNode.dataset.tabIndex);
-    if (!Number.isInteger(tabIndex)) {
-      return;
-    }
-    moveTabToGroup(tabIndex, "excluded");
-    return;
-  }
-
   if (action === "close-tab") {
     const tabIndex = Number(actionNode.dataset.tabIndex);
     if (!Number.isInteger(tabIndex)) {
@@ -610,40 +695,67 @@ function handlePreviewClick(event) {
 
 previewGroups.addEventListener("click", handlePreviewClick);
 excludedTabs.addEventListener("click", handlePreviewClick);
+previewGroups.addEventListener("change", handlePreviewChange);
+excludedTabs.addEventListener("change", handlePreviewChange);
 
 function handleDragStart(event) {
   const target = event.target;
   if (!(target instanceof HTMLElement)) {
     return;
   }
-  const tabIndex = target.dataset.tabIndex;
+  const item = target.closest(".tab-item");
+  if (!(item instanceof HTMLElement)) {
+    return;
+  }
+  const tabIndex = item.dataset.tabIndex;
   if (typeof tabIndex !== "string") {
     return;
   }
   event.dataTransfer?.setData("text/plain", tabIndex);
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = "move";
+  }
 }
 
 function handleDragOver(event) {
-  if (!(event.target instanceof HTMLElement)) {
-    return;
-  }
-  const dropTarget = event.target.closest(".dropzone");
+  const dropTarget = findDropzoneFromEvent(event);
   if (!dropTarget) {
     return;
   }
   event.preventDefault();
+  if (activeDropzone !== dropTarget) {
+    clearDropzoneHighlight();
+    dropTarget.classList.add("is-drop-target");
+    activeDropzone = dropTarget;
+  }
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = "move";
+  }
+}
+
+function handleDragLeave(event) {
+  const dropzone = findDropzoneFromEvent(event);
+  if (!dropzone || dropzone !== activeDropzone) {
+    return;
+  }
+  const nextTarget = event.relatedTarget;
+  if (nextTarget instanceof Node && dropzone.contains(nextTarget)) {
+    return;
+  }
+  clearDropzoneHighlight();
 }
 
 function handleDrop(event) {
-  if (!(event.target instanceof HTMLElement) || !previewState) {
+  if (!previewState) {
     return;
   }
 
-  const dropzone = event.target.closest(".dropzone");
+  const dropzone = findDropzoneFromEvent(event);
   if (!dropzone) {
     return;
   }
   event.preventDefault();
+  clearDropzoneHighlight();
 
   const rawValue = event.dataTransfer?.getData("text/plain");
   const tabIndex = Number(rawValue);
@@ -665,9 +777,11 @@ function handleDrop(event) {
 
 previewGroups.addEventListener("dragstart", handleDragStart);
 previewGroups.addEventListener("dragover", handleDragOver);
+previewGroups.addEventListener("dragleave", handleDragLeave);
 previewGroups.addEventListener("drop", handleDrop);
 excludedTabs.addEventListener("dragstart", handleDragStart);
 excludedTabs.addEventListener("dragover", handleDragOver);
+excludedTabs.addEventListener("dragleave", handleDragLeave);
 excludedTabs.addEventListener("drop", handleDrop);
 
 organizeBtn.addEventListener("click", () => {
@@ -703,7 +817,7 @@ clearGroupsBtn.addEventListener("click", () => {
     return;
   }
   clearAllGroups();
-  setStatus("All preview groups removed. Tabs are now excluded.", "neutral");
+  setStatus("All groups unassigned.", "neutral");
 });
 
 revertBtn.addEventListener("click", () => {

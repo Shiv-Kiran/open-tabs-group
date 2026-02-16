@@ -146,7 +146,7 @@ button {
 
 .group-header {
   display: grid;
-  grid-template-columns: 1fr auto auto auto;
+  grid-template-columns: 1fr auto auto;
   gap: 6px;
   align-items: center;
   margin-bottom: 6px;
@@ -155,7 +155,7 @@ button {
 .group-name-input {
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 6px;
+  padding: 5px 6px;
   font: inherit;
   font-size: 12px;
   background: #fffdf8;
@@ -170,7 +170,7 @@ button {
 .preview-rationale {
   margin: 0 0 4px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .tab-list {
@@ -186,13 +186,12 @@ button {
 }
 
 .tab-item {
+  position: relative;
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 6px;
-  align-items: center;
+  gap: 4px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 6px;
+  padding: 6px 30px 6px 6px;
   background: #fffdf8;
 }
 
@@ -210,6 +209,16 @@ button {
 .tab-actions {
   display: flex;
   gap: 4px;
+  align-items: center;
+}
+
+.tab-actions select {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff8ef;
+  color: var(--text);
+  font-size: 11px;
+  padding: 3px 5px;
 }
 
 .tab-actions button {
@@ -218,12 +227,20 @@ button {
   background: #fff8ef;
   color: var(--text);
   font-size: 11px;
-  padding: 4px 6px;
+  padding: 2px 6px;
+  line-height: 1.2;
+  min-height: 22px;
   cursor: pointer;
 }
 
 .dropzone {
   min-height: 24px;
+}
+
+.dropzone.is-drop-target {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px rgba(223, 115, 65, 0.45);
+  background: #fff3e4;
 }
 
 .excluded {
@@ -267,6 +284,39 @@ button {
   color: var(--text);
   cursor: pointer;
   padding: 8px;
+}
+
+.icon-btn {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff8ef;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 11px;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0 6px;
+}
+
+.tab-close-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1;
+  background: #fff3e8;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.tab-close-btn:hover {
+  color: var(--error);
+  border-color: #e6b8a4;
 }
 
 .revert {
