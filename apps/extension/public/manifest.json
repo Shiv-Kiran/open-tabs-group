@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Mindweave - AI Tab Manager",
+  "description": "Organize tab chaos into focused groups with one click.",
+  "version": "0.2.0",
+  "permissions": [
+    "tabs",
+    "tabGroups",
+    "storage",
+    "scripting"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
+  "host_permissions": [
+    "https://api.openai.com/*"
+  ],
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Mindweave",
+    "default_popup": "popup.html"
+  },
+  "options_page": "options.html"
+}

@@ -1,0 +1,14 @@
+{
+  "name": "mindweave-extension",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "package": "npm run build && powershell -ExecutionPolicy Bypass -File scripts/package.ps1"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0"
+  }
+}

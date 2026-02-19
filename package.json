@@ -1,0 +1,12 @@
+{
+  "name": "tabs-grouper",
+  "private": true,
+  "version": "0.2.0",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace apps/extension",
+    "package": "npm run package --workspace apps/extension"
+  }
+}

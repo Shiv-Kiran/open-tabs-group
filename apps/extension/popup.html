@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mindweave</title>
+    <link rel="stylesheet" href="/src/popup/popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <h1>Mindweave</h1>
+      <p>Warm tab clarity in one click.</p>
+
+      <button id="organizeBtn" type="button">Generate Preview</button>
+      <p id="statusText" class="status">Ready.</p>
+      <p id="hintText" class="hint" hidden></p>
+      <div id="undoToast" class="undo-toast" hidden>
+        <span id="undoText"></span>
+        <button id="undoBtn" type="button">Undo</button>
+      </div>
+      <p id="summaryText" class="summary">No runs yet.</p>
+
+      <section id="previewSection" class="preview" hidden>
+        <div class="preview-header">
+          <h2>Preview</h2>
+          <p id="previewMetaText" class="preview-meta"></p>
+        </div>
+        <div id="previewGroups" class="preview-groups"></div>
+        <div id="excludedSection" class="excluded" hidden>
+          <h3>Unassigned</h3>
+          <ul id="excludedTabs" class="tab-list dropzone" data-drop-target="excluded"></ul>
+        </div>
+        <div class="preview-actions">
+          <button id="applyPreviewBtn" type="button">Apply Groups</button>
+          <button id="regeneratePreviewBtn" type="button">Regenerate</button>
+          <button id="cancelPreviewBtn" type="button">Cancel</button>
+        </div>
+        <button id="clearGroupsBtn" type="button">Unassign All Groups</button>
+      </section>
+
+      <section class="revert">
+        <h2>Revert</h2>
+        <select id="revertSelect"></select>
+        <button id="revertBtn" type="button">Revert Selected</button>
+      </section>
+
+      <button id="openOptionsBtn" class="link-btn" type="button">Settings</button>
+    </main>
+
+    <script type="module" src="/src/popup/popup.js"></script>
+  </body>
+</html>

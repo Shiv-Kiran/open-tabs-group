@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mindweave Settings</title>
+    <link rel="stylesheet" href="/src/options/options.css" />
+  </head>
+  <body>
+    <main class="options">
+      <h1>Mindweave Settings</h1>
+      <p>OpenAI and organize preferences.</p>
+
+      <label for="apiKey">OpenAI API Key</label>
+      <input id="apiKey" name="apiKey" type="password" placeholder="sk-..." />
+
+      <label for="model">Model</label>
+      <input id="model" name="model" type="text" />
+
+      <label for="fallbackModel">Fallback model</label>
+      <input id="fallbackModel" name="fallbackModel" type="text" />
+
+      <label class="checkbox">
+        <input id="includeFullUrl" name="includeFullUrl" type="checkbox" />
+        Include full URL in AI context
+      </label>
+
+      <label class="checkbox">
+        <input
+          id="includeScrapedContext"
+          name="includeScrapedContext"
+          type="checkbox"
+        />
+        Include lightweight page context (description/headings/snippet)
+      </label>
+
+      <label for="organizeScope">Organize scope</label>
+      <select id="organizeScope" name="organizeScope">
+        <option value="all">All windows</option>
+        <option value="current">Current window only</option>
+      </select>
+
+      <label class="checkbox">
+        <input
+          id="allowCrossWindowGrouping"
+          name="allowCrossWindowGrouping"
+          type="checkbox"
+        />
+        Allow moving tabs across windows when applying groups
+      </label>
+
+      <button id="saveBtn" type="button">Save Settings</button>
+      <p id="statusText" class="status">Ready.</p>
+    </main>
+
+    <script type="module" src="/src/options/options.js"></script>
+  </body>
+</html>
